@@ -1,0 +1,21 @@
+title: PackClient Screenshot Worker Mode
+id: 8f85a0d9-6f97-49da-b2f4-9db1e0db80aa
+status: experimental
+description: Detects the distinctive /scr_cap_worker execution mode, including after launcher renaming.
+references:
+  - https://www.proofpoint.com/us/blog/threat-insight/carry-compromise-ta4922-packs-packclient
+author: Ivan Immanuel Shaji
+date: 2026-09-06
+tags:
+  - attack.collection
+  - attack.t1113
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_worker:
+    CommandLine|re: '(?i)(?:^|\s)/scr_cap_worker(?:\s|$)'
+  condition: selection_worker
+falsepositives:
+  - Internal research systems intentionally using reconstructed or renamed tooling; validate hash and local context.
+level: high

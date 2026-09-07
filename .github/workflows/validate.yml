@@ -1,0 +1,84 @@
+name: Validate tools, synthetic IPC and detections
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  screenshot-ipc:
+    name: Synthetic screenshot IPC (Windows PowerShell 5.1)
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse the restored PowerShell sources
+        shell: powershell
+        run: |
+          $sources = @('tools/screenshot-ipc/peer.ps1', 'tools/screenshot-ipc/simulator.ps1', 'tests/test_screenshot_ipc.ps1')
+          foreach ($source in $sources) {
+            $tokens = $null
+            $parseErrors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD $source), [ref]$tokens, [ref]$parseErrors)
+            if ($parseErrors.Count) { throw ($parseErrors | Out-String) }
+          }
+      - name: Run the synthetic IPC and output-preservation checks
+        shell: powershell
+        run: |
+          & .\tests\test_screenshot_ipc.ps1 -KeepArtifacts -ArtifactParent $env:RUNNER_TEMP 2>&1 | Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'screenshot-ipc-validation.log')
+      - name: Preserve the synthetic validation record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-ipc-validation
+          path: |
+            ${{ runner.temp }}/screenshot-ipc-validation.log
+            ${{ runner.temp }}/packclient-screenshot-ipc-tests-*/
+          if-no-files-found: warn
+          retention-days: 30
+
+  python:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Run deterministic passive-tool tests
+        env:
+          PYTHONPATH: tests
+        run: >-
+          python -B -m unittest discover -s tests -v
+
+  detection-engines:
+    name: Installed detection and dissection engines
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install validation engines without starting capture services
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo systemctl mask suricata.service
+          sudo apt-get update -qq
+          sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y tshark suricata
+          python -m pip install -r requirements/validation.txt
+      - name: Require engines and validate inert synthetic inputs
+        env:
+          PYTHONPATH: tests
+          PACKCLIENT_REQUIRE_DETECTION_ENGINES: "1"
+        run: >-
+          python -B -m unittest discover -s tests -v

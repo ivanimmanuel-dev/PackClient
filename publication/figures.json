@@ -1,0 +1,128 @@
+[
+  {
+    "id": "launcher-identity",
+    "asset": "assets/figures/launcher-identity.png",
+    "title": "The recovered B image has a concrete identity.",
+    "caption": "The image summary identifies the imported PE and its PackClientLauncher PDB name. The recorded SHA-256 identifies recovered image B.",
+    "grade": "static",
+    "source": "Ghidra program information for recovered image B.",
+    "reference": "references/architecture.html"
+  },
+  {
+    "id": "worker-open",
+    "asset": "assets/figures/worker-open.png",
+    "title": "The worker opens an existing endpoint.",
+    "caption": "1. CreateFileW receives the supplied endpoint, read/write access and disposition 3 (OPEN_EXISTING). 2. The READY header uses magic 0x50435231 and type 1. The endpoint namespace and external peer are not recovered.",
+    "grade": "static",
+    "source": "Ghidra decompilation of the worker endpoint-open and READY path.",
+    "reference": "references/screenshot-ipc.html"
+  },
+  {
+    "id": "worker-frame",
+    "asset": "assets/figures/worker-frame.png",
+    "title": "The recapture branch constructs a type-2 response.",
+    "caption": "The literal type 2 and the send-helper call are visible in the recovered recapture path. The field semantics and BGRX payload layout come from the linked static dataflow analysis. This is reconstructed code, not a captured live framebuffer.",
+    "grade": "static",
+    "source": "Ghidra disassembly of the recapture response in image B.",
+    "reference": "references/screenshot-ipc.html"
+  },
+  {
+    "id": "envelope-order",
+    "asset": "assets/figures/envelope-order.png",
+    "title": "Authentication gates decryption.",
+    "caption": "1. Compute the envelope MAC. 2. Compare the received tag. 3. Enter the decrypt helper only after the comparison succeeds. Helper roles are established in the transport analysis; the screenshot shows their control-flow order.",
+    "grade": "static",
+    "source": "Ghidra decompilation of the authenticated receive path in image B.",
+    "reference": "references/protocol-reference.html"
+  },
+  {
+    "id": "session-spawn",
+    "asset": "assets/figures/session-spawn.png",
+    "title": "The active-session path retries a token-based launch.",
+    "caption": "The recovered call uses CreateProcessAsUserW with flags 0x09000400. The loop sleeps for 1,000 ms after failure and stops after at most 0x1E attempts. This is the active-session helper, not proof of the original chain's elevation API.",
+    "grade": "static",
+    "source": "Ghidra decompilation of the active-session spawn loop in image B.",
+    "reference": "references/active-session-handoff.html"
+  },
+  {
+    "id": "runtime-process-chain",
+    "asset": "assets/figures/runtime-process-chain.png",
+    "title": "One parent creates two siblings.",
+    "caption": "Process Monitor records parent PID 2116 creating svchost PID 3696 and schtasks PID 4600; schtasks then creates conhost PID 8248. SUCCESS is the Process Create result, not the child's exit code.",
+    "grade": "runtime",
+    "source": "Process Monitor process-creation rows from the PID 3696 evidence set.",
+    "reference": "references/runtime-validation.html"
+  },
+  {
+    "id": "scheduled-task",
+    "asset": "assets/figures/scheduled-task.png",
+    "title": "NvSvc combines an at-logon trigger with a ProgramData action.",
+    "caption": "Task Scheduler shows NvSvc's enabled at-logon trigger, ProgramData action and configured principal. Highest available privileges for this user do not establish SYSTEM execution.",
+    "grade": "runtime",
+    "source": "Task Scheduler action, trigger and principal settings for NvSvc.",
+    "reference": "references/runtime-validation.html"
+  },
+  {
+    "id": "surrogate-process",
+    "asset": "assets/figures/surrogate-process.png",
+    "title": "The surviving surrogate has a bare command line.",
+    "caption": "1. Bare SysWOW64 svchost command line. 2. Parent 2116 has exited. 3. The process is x86. The Downloads\\PackClient current directory supplies additional context. These properties support an anomalous surrogate, without identifying an injection subtype.",
+    "grade": "runtime",
+    "source": "Process Explorer properties for PID 3696.",
+    "reference": "references/runtime-validation.html"
+  },
+  {
+    "id": "socket-observations",
+    "asset": "assets/figures/socket-observations.png",
+    "title": "Connection attempts from svchost.exe, PID 3696.",
+    "caption": "Process Explorer shows two SYN_SENT attempts to 154.36.188.201:443, from local ports 54581 and 50275.",
+    "grade": "runtime",
+    "source": "Process Explorer TCP/IP views associated with PID 3696.",
+    "reference": "references/runtime-validation.html"
+  },
+  {
+    "id": "memory-package",
+    "asset": "assets/figures/memory-package.png",
+    "title": "Private executable allocation in svchost.exe, PID 5812.",
+    "caption": "VMMap shows a 408 KiB Execute/Read allocation at 0x002E0000. Corresponding dump analysis identifies its contents as the transformed A/B package.",
+    "grade": "runtime",
+    "source": "VMMap allocation views from the PID 5812 evidence set.",
+    "reference": "references/runtime-validation.html"
+  },
+  {
+    "id": "worker-delete",
+    "asset": "assets/figures/worker-delete.png",
+    "title": "The debugger is stopped before deletion.",
+    "caption": "This is the PID 8148 pre-call stop. EAX at this point is not DeleteObject's return value. The image supplies call-site context; it does not prove successful deletion or establish the cause of the later PID 8040 failure.",
+    "grade": "unresolved",
+    "source": "Debugger breakpoint capture from the PID 8148 attempt.",
+    "reference": "references/screenshot-ipc.html"
+  },
+  {
+    "id": "worker-failure",
+    "asset": "assets/figures/worker-failure.png",
+    "title": "The final worker attempt failed before READY.",
+    "caption": "The saved record shows an access violation at RVA 0xA567 with EDI=0x13C, followed by a zero-byte READY timeout. The attempt included manual debugger changes, so the crash does not establish a failure in unmodified execution or a causal use-after-free diagnosis.",
+    "grade": "unresolved",
+    "source": "Debugger and peer-output captures from the PID 8040 attempt.",
+    "reference": "references/screenshot-ipc.html"
+  },
+  {
+    "id": "staged-host-pair",
+    "asset": "assets/figures/staged-host-pair.png",
+    "title": "The installed pair uses a signed host and a separate companion DLL.",
+    "caption": "Explorer shows Tax_Notice_23665.exe beside nvdaHelperRemote.dll under C:\\ProgramData\\NVIDIA Corporation\\NvSvc. A separate properties view lists an embedded NV Access Limited signature for the host. The signature belongs to the host; this view does not authenticate the companion DLL.",
+    "grade": "runtime",
+    "source": "Explorer directory listing and host Digital Signatures properties, captured separately.",
+    "reference": "references/architecture.html"
+  },
+  {
+    "id": "cache-roundtrip-code",
+    "asset": "assets/figures/cache-roundtrip-code.png",
+    "title": "The plaintext must pass digest verification, cache save and cache reload.",
+    "caption": "The recovered transfer body checks the plaintext digest, requires Save to succeed, and immediately requires TryLoad to return a nonempty vector. The visible failure branches are SHA256 mismatch, disk_cache_save_failed and disk_cache_reload_failed. This is statically reconstructed control flow, not evidence of successful delivery.",
+    "grade": "static",
+    "source": "Ghidra decompilation of image B’s PLK1 acceptance and cache-return path.",
+    "reference": "references/protocol-reference.html"
+  }
+]

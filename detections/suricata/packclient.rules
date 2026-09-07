@@ -1,0 +1,9 @@
+# Experimental, port-independent PackClient plaintext handshake detection.
+# Candidate frame prefix + type 0x15 + object magic/version, at any stream offset.
+# This does not validate a complete object, HMAC, or application framing.
+
+alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:"MALWARE PackClient PLH1 client hello candidate"; flow:established,to_server,only_stream; content:"|24 00 40 5A 15 00 00 00 50 4C 48 31 01 00|"; classtype:trojan-activity; sid:4202601; rev:2;)
+
+alert tcp $EXTERNAL_NET any -> $HOME_NET any (msg:"MALWARE PackClient PLC1 server challenge candidate"; flow:established,to_client,only_stream; content:"|1C 00 40 5A 15 00 00 00 50 4C 43 31 01 00|"; classtype:trojan-activity; sid:4202602; rev:2;)
+
+alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:"MALWARE PackClient PLA1 client authentication candidate"; flow:established,to_server,only_stream; content:"|2C 00 40 5A 15 00 00 00 50 4C 41 31 01 00|"; classtype:trojan-activity; sid:4202603; rev:2;)

@@ -1,0 +1,2 @@
+# Optional raw-block LZ4 support for PLK1 version 2.
+lz4==4.4.5

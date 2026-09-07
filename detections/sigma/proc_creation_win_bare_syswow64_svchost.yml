@@ -1,0 +1,24 @@
+title: Bare 32-bit Svchost Launched Outside Service Control
+id: 48d39892-41a8-4fd3-bc11-1acfc0360e57
+status: experimental
+description: Hunts a SysWOW64 svchost with only its full image path as command line and a non-service parent. This is anomalous process metadata, not proof of injection.
+author: Ivan Immanuel Shaji
+date: 2026-09-05
+tags:
+  - attack.defense-evasion
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_image:
+    Image|endswith: '\Windows\SysWOW64\svchost.exe'
+  selection_bare:
+    CommandLine|re: '(?i)^\s*(?:"[a-z]:\\Windows\\SysWOW64\\svchost\.exe"|[a-z]:\\Windows\\SysWOW64\\svchost\.exe)\s*$'
+  filter_service_parent:
+    ParentImage|endswith:
+      - '\services.exe'
+      - '\svchost.exe'
+  condition: selection_image and selection_bare and not filter_service_parent
+falsepositives:
+  - Unusual but legitimate software launching svchost directly; investigate signer, parent, user, current directory, and thread starts.
+level: high

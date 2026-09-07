@@ -1,0 +1,29 @@
+title: PackClient Active Session Mode
+id: 2c9bdd0a-e9d7-4b33-942a-f0df2c335a12
+status: experimental
+description: Detects PackClient active-session execution controls when paired with launcher image or original-filename identity.
+references:
+  - https://www.proofpoint.com/us/blog/threat-insight/carry-compromise-ta4922-packs-packclient
+author: Ivan Immanuel Shaji
+date: 2026-09-06
+tags:
+  - attack.defense-evasion
+  - attack.t1134.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_image:
+    Image|endswith:
+      - '\PackClientLauncher.exe'
+      - '\PackClientConsole.exe'
+  selection_original:
+    OriginalFileName:
+      - 'PackClientLauncher.exe'
+      - 'PackClientConsole.exe'
+  selection_mode:
+    CommandLine|re: '(?i)(?:^|\s)(?:-acsi|--active-session)(?:\s|$)'
+  condition: selection_mode and (selection_image or selection_original)
+falsepositives:
+  - Internal research systems intentionally using reconstructed launcher binaries or preserved original filenames.
+level: high

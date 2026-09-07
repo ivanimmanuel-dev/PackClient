@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.venv/
+site/
+ipc-output/
+tools/screenshot-ipc/evidence/

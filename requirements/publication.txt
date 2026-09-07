@@ -1,0 +1,4 @@
+# Static publication and PDF typesetting.
+Markdown==3.8.2
+reportlab==4.4.9
+Pillow==12.3.0

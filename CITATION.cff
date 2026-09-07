@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "Please cite the report when using these findings or tools."
+title: "PackClient: Reverse Engineering a Modular RAT Framework"
+type: software
+authors:
+  - family-names: Shaji
+    given-names: Ivan Immanuel
+repository-code: "https://github.com/ivanimmanuel-dev/PackClient"
+url: "https://ivanimmanuel-dev.github.io/PackClient/"
+date-released: 2026-09-06
+version: 1.0.0
+preferred-citation:
+  type: report
+  title: "PackClient: Reverse Engineering a Modular RAT Framework"
+  authors:
+    - family-names: Shaji
+      given-names: Ivan Immanuel
+  year: 2026
+  month: 9
+  url: "https://ivanimmanuel-dev.github.io/PackClient/"
+keywords:
+  - PackClient
+  - malware analysis
+  - reverse engineering
+  - network protocol
+  - threat detection
