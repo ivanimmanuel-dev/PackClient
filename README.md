@@ -2,8 +2,8 @@
 
 #### Reverse Engineering a Modular RAT Framework
 
-<p align="center"> <img width="257" height="222" alt="Tax_Notice_23665" src="https://github.com/user-attachments/assets/72039a0a-0ae9-4c2a-bb43-960bb4be806b" /> 
-&nbsp;&nbsp;&nbsp; <img width="166" height="224" alt="nvdaHelperRemote" src="https://github.com/user-attachments/assets/eaa18394-c344-4b64-a110-3e90fd2efb6c" /> </p>
+<p align="center"> <img width="257" height="222" alt="Tax_Notice_23665" src="https://github.com/user-attachments/assets/e8e1c36b-f4c8-49ac-86b4-f05237083478" /> 
+&nbsp;&nbsp;&nbsp; <img width="166" height="224" alt="nvdaHelperRemote" src="https://github.com/user-attachments/assets/675e5495-ff09-4227-9b39-66ebd2d16fd0" /> </p>
 
 Reconstruction of the launcher's `1RCP` screenshot-worker protocol, transport, authentication, PLK1 delivery/cache behavior, active-session handoff, and runtime evidence tied to the recovered build.
 
