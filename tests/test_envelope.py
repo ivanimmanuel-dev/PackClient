@@ -13,9 +13,8 @@ from tools.packclient_proto import (
 )
 
 
-# NIST SP 800-38A AES-256-CBC first-block values.  CBC's IV xor is adjusted
-# deterministically so the same known ciphertext decrypts to our protocol
-# plaintext plus one byte of valid PKCS#7 padding.
+# NIST SP 800-38A values; derive an IV so the ciphertext decrypts to the
+# protocol test plaintext with valid PKCS#7 padding.
 AES_KEY = bytes.fromhex(
     "603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"
 )
