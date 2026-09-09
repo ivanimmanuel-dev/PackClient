@@ -11,18 +11,15 @@ This document describes the recovered July 2026 Tax Notice build. All code locat
 | Signed host, `Tax_Notice_23665.exe` | 120,984 | `93DD8B7B393289F88493596FAA4AE70054D9EB4FE47F2DD334F0C6BB5262F2A8` |
 | Carrier, `nvdahelperremote.dll` | 455,527 | `7295090C2CB63EBC43F932451971C41F9D015D2741E97AE3D9855F5AE87CFF94` |
 | Transformed package | 415,071 | `0419AE7381CAA97172C40F5AEA601B8A22F1F58D27F3930509AF5808E043F65E` |
-| Stable protected package allocation in Triage memory | 417,792 (`0x66000`) | `E49581067CC2AA5ABD09C8DF42D6FBD87CB064A9363FE8B52D8369FD1C51FFE5` |
 | Executable A, wrapper/mapper | 397,312 (`0x61000`) | `28B8EB812E0F0AB724475BD51E3DC1F618BCB08B05998C414D4193009BF8D598` |
 | Executable B, `PackClientLauncher.exe` | 271,872 (`0x42600`) | `46B34789196733FAB62193F0AAEDB198B09F1362F9B10CA1DD70CF81D68B01AD` |
 | Reconstructed `PackClientCore.dll` | 985,088 | `4DE6EF8647FB4B599966A233740CB0514D1E71B8019A1A1792ED7E1E514EDF1C` |
 
-The 415,071-byte object is the logical XOR-decoded record recovered from the carrier. The 417,792-byte object is the complete protected private allocation dumped from the surrogate in twelve July/August Triage tasks. The allocation is 2,721 bytes larger; the retained evidence does not establish a role for those additional bytes, so the two hashes must not be treated as conflicting identities or silently collapsed into one object.
-
-The verified IMG traversal contains exactly the host and carrier: carrier extent `0xF000`, host extent `0x7E800`. The host is an AMD64 NVDA/NV Access executable with only two imports, `KERNEL32!ExitProcess` and `nvdaHelperRemote.dll!injection_initialize`; the helper IAT slot is at host RVA `0xF268`. The malicious colocated DLL uses a legitimate helper name. This supports a DLL search-order sideload configuration, subsequently corroborated by a runtime `Load Image` event. See [NV Access's helper documentation](https://github.com/nvaccess/nvda/blob/master/nvdaHelper/readme.md) and [MITRE T1574.001](https://attack.mitre.org/techniques/T1574/001/).
+`Tax_Notice_23665.img` contains the signed host and colocated carrier: carrier extent `0xF000`, host extent `0x7E800`. The host is an AMD64 NVDA/NV Access executable with only two imports, `KERNEL32!ExitProcess` and `nvdaHelperRemote.dll!injection_initialize`; the helper IAT slot is at host RVA `0xF268`. The malicious colocated DLL uses a legitimate helper name. This supports a DLL search-order sideload configuration, subsequently corroborated by a runtime `Load Image` event. See [NV Access's helper documentation](https://github.com/nvaccess/nvda/blob/master/nvdaHelper/readme.md) and [MITRE T1574.001](https://attack.mitre.org/techniques/T1574/001/).
 
 ## Carrier and transformed package
 
-The carrier is PE32+ AMD64, with five sections, entry RVA `0x2AE4`, and export-library name `nvdaHelperRemote_v16_5.dll`. Its exports are `injection_initialize` at carrier RVA `0x1EC0` and `injection_terminate` at `0x1ED0`. Static analysis of the signed host closes the invocation boundary: host RVA `0x1004` directly calls the imported `nvdaHelperRemote.dll!injection_initialize`.
+The carrier is PE32+ AMD64, with five sections, entry RVA `0x2AE4`, and export-library name `nvdaHelperRemote_v16_5.dll`. Its exports are `injection_initialize` at carrier RVA `0x1EC0` and `injection_terminate` at `0x1ED0`. At RVA `0x1004`, the signed host directly calls the imported `nvdaHelperRemote.dll!injection_initialize`.
 
 Three carrier call sites establish its process-creation contracts:
 
@@ -32,7 +29,9 @@ Three carrier call sites establish its process-creation contracts:
 | `0x18E2` | `ShellExecuteExW`, verb `runas`, current module path, null parameter and directory fields | Requests self-elevation |
 | `0x1BEB` | `CreateProcessW`, `System32`/`SysWOW64` `svchost.exe` path, null command line, flags `0x08000004` (`CREATE_NO_WINDOW` plus `CREATE_SUSPENDED`) | Creates a suspended surrogate |
 
-The last call's returned handles feed native/WOW64 thread-context get/set and `ResumeThread` operations in the carrier function at `0x1900`. Triage separately records remote writes of the stable package followed by `SetThreadContext` on the newly created surrogate's primary thread. Together these establish remote package placement and primary-thread execution hijacking. The carrier's exact static write call site/API and the precise instruction-pointer value installed by `SetThreadContext` remain unresolved. The evidence therefore supports thread execution hijacking, not classic image replacement or remote-thread creation. None of the three launch sites constructs a screenshot-worker invocation or transfers its endpoint.
+The surrogate’s process and thread handles flow into native/WOW64 context handling and `ResumeThread` in the carrier routine at `0x1900`. In Triage task `260828-py7ysahr4y`, `Tax_Notice_23665.exe` issued 53 sandbox-labelled `WriteProcessMemory` operations against a newly created `SysWOW64\svchost.exe`. A new `0x66000`-byte private region appeared at `0x00440000`, followed by `SetThreadContext` on the primary thread. The same sequence recurs throughout the retained July and August telemetry.
+
+Together, the static and runtime evidence establish remote package placement and primary-thread context hijacking. The exact carrier code responsible for the writes and the instruction pointer installed by `SetThreadContext` remain unresolved. No image replacement or remote-thread creation was observed.
 
 The carrier reads its own or same-directory file through a whole-file read-only mapping. The recovered path uses `GetModuleFileNameW` at carrier RVA `0x1156`, the same-buffer call at `0x1165`, and mapping function `0x2100`. It calculates the maximum PE section raw end, `0x4E00`, and reads the appended record there.
 
@@ -52,11 +51,11 @@ The header bytes are `70 00 00 00 5F 55 06 00`. The deterministic transform prod
 | `0x0128D–0x6228D` | Executable A |
 | `0x01CC1–0x442C1` | Executable B, nested inside A's `.rdata` |
 | `0x6228D–0x627C5` | `0x538` bytes of NUL padding |
-| `0x627C5–0x6555F` | Terminal region: four-byte ABI glue, 11,647-byte Donut loader, 23 zero bytes |
+| `0x627C5–0x6555F` | Four-byte entry stub, 11,647-byte Donut x86 loader, and 23 zero bytes |
 
-At record offset `0x627C5`, four-byte glue (`pop ecx; pop edx; push ecx; push edx`) recovers the embedded-instance pointer from the opening `CALL` return address while preserving the caller return address. The following 11,647 bytes, beginning at `0x627C9`, are byte-identical to Donut `LOADER_EXE_X86` at commit `47758d787209dd1744f58c140102ac91b649df16`; their SHA-256 is `0C29CCCFF1B027D57C467564A333E9ADE455144649909A4B797B09B43002AC71`. The terminal region ends with 23 zero bytes. This closes the terminal-loader ABI and supports build-specific Donut attribution without incorrectly treating the glue/padding as part of the compared loader.
+At record offset `0x627C5`, the four-instruction stub (`pop ecx; pop edx; push ecx; push edx`) recovers the embedded-instance pointer from the opening `CALL` while preserving the caller’s return address. The next 11,647 bytes, beginning at `0x627C9`, exactly match `LOADER_EXE_X86` from Donut source revision `47758d787209dd1744f58c140102ac91b649df16`. Their SHA-256 is `0C29CCCFF1B027D57C467564A333E9ADE455144649909A4B797B09B43002AC71`. The final 23 bytes are zero.
 
-The parsed unencrypted Donut instance is embedded rather than HTTP/DNS staged. It contains 63 API hashes and dependency list `ole32;oleaut32;wininet;mscoree;shell32`; requests no AMSI/WLDP/ETW bypass; overwrites mapped PE headers; and runs the 397,312-byte unmanaged executable A as a thread. Exit option 3 blocks indefinitely, compression is disabled, and original-entry-point value 0 means the loader does not return the hijacked primary thread to the original `svchost.exe` entry point.
+The Donut instance is embedded in the package rather than staged over HTTP or DNS. It contains 63 API hashes and lists `ole32`, `oleaut32`, `wininet`, `mscoree`, and `shell32` as dependencies. Compression and AMSI/WLDP/ETW bypasses are disabled, and mapped PE headers are overwritten. The loader starts the 397,312-byte unmanaged executable A in a new thread. Exit option 3 blocks indefinitely, while an original-entry-point value of 0 prevents the hijacked primary thread from returning to the original `svchost.exe` entry point.
 
 ## A maps B inside the current process
 
@@ -64,7 +63,7 @@ A is a native PE32 x86 executable with three sections, timestamp `0x6A27AE4B`, e
 
 At A RVA `0x2000`, the 52-byte prefix preceding B comprises ten import-thunk DWORDs (nine entries plus terminator), `PACKPAY1` at `0x2028`, and B's raw size `0x42600` at `0x2030`. B begins at A RVA `0x2034`.
 
-A validates that descriptor and B's PE headers, allocates the declared image size, copies file-backed headers/sections, applies relocations, resolves imports, handles a TLS directory if present, and applies section protections. A calls the mapped entry at A RVA `0x145F`; B has no TLS directory. A performs this B mapping inside the surrogate after the injected Donut package starts A.
+A validates the descriptor and B’s PE headers, allocates the declared image size, copies the file-backed headers and sections, applies relocations, resolves imports, and sets the final section protections. The mapper supports TLS, although B has no TLS directory. After Donut starts A inside the surrogate, A maps B into the same process and calls B’s entry point from A RVA `0x145F`.
 
 ## B identity and coordinate map
 
@@ -98,7 +97,7 @@ B's loader at `0xCBA2` accepts nonempty environment overrides. Port is decimal a
 | `+0x64` | Tag string | Empty |
 | `+0x7C` | Config string | Empty |
 
-Main calls pull at `0x484A`, then retries at `0x4875` after 1,500 ms on failure; both calls request slot 0. On success, `0x4938` passes `vector.begin` and `vector.end - vector.begin` to PE wrapper `0x10591`, which calls `MemoryLoadLibraryEx` at `0x10136`. PE checks enforce `MZ`, bounded `e_lfanew`, `PE\0\0`, and PE32 magic before mapping. Eight historical PLK1 transfers independently reconstruct the expected 985,088-byte `PackClientCore.dll` with SHA-256 `4DE6EF8647FB4B599966A233740CB0514D1E71B8019A1A1792ED7E1E514EDF1C`. See the [Core and artifact audit](core-and-artifact-audit.md).
+`Main` requests PLK1 slot 0 at RVA `0x484A` and retries at `0x4875` after a 1,500 ms failure delay. After successful delivery, RVA `0x4938` passes the returned buffer and its length to wrapper `0x10591`, which maps it through `MemoryLoadLibraryEx` at `0x10136`. Before mapping, the wrapper validates `MZ`, a bounded `e_lfanew`, `PE\0\0`, and PE32 magic. Historical PLK1 traffic reconstructs a 985,088-byte `PackClientCore.dll` with SHA-256 `4DE6EF8647FB4B599966A233740CB0514D1E71B8019A1A1792ED7E1E514EDF1C`. See [Core analysis](core-analysis.md).
 
 The launcher resolves `PackClientDll_AbiVersion`, `PackClientDll_Run`, `RunWithConfig`, and `Main`. A present ABI function must return 1. Main requires at least `RunWithConfig` or `Main`, even though it also resolves the Run entry. The five-field view contains host, port, group, optional tag, and optional config; `::1` or `[::1]` is normalized to the fallback host literal. Selector `0x2E2A` prefers:
 
@@ -125,4 +124,4 @@ The one-shot crash path tries `launcher_crash.dmp` beside the current process mo
 
 ## Evidence boundaries
 
-The recovered launcher exposes transport, delivery/cache, session continuity, a screenshot worker and supporting lifecycle facilities. The Core is recovered, and the upstream high-level placement/start behavior is established as remote package writes followed by primary-thread context hijacking. The exact carrier write API/call site and installed instruction-pointer value remain unresolved, as do the external screenshot peer, any `1RCP`-to-`PV10` bridge, the Launcher's envelope-state writer, the mutex-export consumer and all delivered plugin binaries. Full limitations and evidence grades are in [limitations](limitations.md), [evidence](evidence.md), and the [Core and artifact audit](core-and-artifact-audit.md).
+The recovered Launcher includes transport, Core delivery and caching, active-session continuity, a screenshot worker, and supporting lifecycle functions. Runtime evidence establishes remote package writes followed by primary-thread context hijacking, but the carrier’s exact write call site and the instruction pointer installed by `SetThreadContext` remain unresolved. The external `1RCP` peer, any bridge between `1RCP` and `PV10`, the Launcher’s envelope-state writer, the mutex-export consumer, and the plugin binaries were not recovered. See [limitations](limitations.md), [evidence](evidence.md), and [Core analysis](core-analysis.md).
