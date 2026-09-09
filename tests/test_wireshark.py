@@ -1,4 +1,4 @@
-"""Offline TShark checks for the PackClient Lua dissector."""
+"""TShark integration tests for the PackClient Lua dissector."""
 
 from __future__ import annotations
 
@@ -206,8 +206,8 @@ class WiresharkRuntimeTests(unittest.TestCase):
         self, *arguments: str, invalid_field: str | None = None
     ) -> subprocess.CompletedProcess[str]:
         assert self.tshark is not None
-        # TShark versions in supported runners require glossary mode first.
-        # Keep the Lua loader enabled for both glossary and packet checks.
+        # Supported TShark versions require -G to be the first argument.
+        # Load the Lua dissector for both glossary and packet checks.
         result = subprocess.run(
             [self.tshark, *arguments, "-n", "-X", f"lua_script:{LUA_DISSECTOR}"],
             cwd=ROOT,
@@ -300,8 +300,8 @@ class WiresharkRuntimeTests(unittest.TestCase):
             display_filter="packclient.message_type == 0x16",
         )
         self.assertEqual(rows, [["0x00000016", "1", "16", ""]])
-        # Query the absent fields directly. Older TShark treats argv[3] of
-        # `-G fields` as a prefix, conflicting with explicit Lua-loader flags.
+        ## Query absent fields directly because older TShark interprets additional
+        # `-G fields` arguments as a prefix, conflicting with the Lua-loader flags.
         for name in ("packclient.envelope.plaintext", "packclient.envelope.decrypted"):
             self._run("-r", str(self.paths["envelope"]), "-T", "fields", "-e", name,
                       invalid_field=name)
