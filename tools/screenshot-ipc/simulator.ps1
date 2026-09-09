@@ -1,3 +1,6 @@
+<#
+Runs a synthetic 1RCP worker for validation and negative test scenarios.
+#>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
@@ -157,7 +160,8 @@ try {
         Write-Exact $client (New-Header $Magic 2 ([uint32]::MaxValue) ([uint32]::MaxValue) ([uint32]::MaxValue)) $IoTimeoutMs 'absurd type 2 header'
         exit 0
     }
-
+    
+    # A 2x2 top-down BGRX image containing red, green, blue, and white pixels.
     $pixels = [byte[]](
         0x00, 0x00, 0xFF, 0x00,
         0x00, 0xFF, 0x00, 0x00,
