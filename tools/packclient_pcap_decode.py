@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Print a PackClient timeline from a PCAP or PCAPNG file."""
+"""Print a passive PackClient Launcher timeline from PCAP or PCAPNG input."""
 
 from __future__ import annotations
 
