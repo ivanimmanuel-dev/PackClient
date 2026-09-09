@@ -1,13 +1,15 @@
 # Detection content
 
-These rules turn the documented PackClientLauncher findings into detection and hunting candidates.
+Detection and hunting rules derived from the PackClient Launcher behavior.
 
 | Path | Purpose |
 |---|---|
-| `sigma/` | Windows process and task behavior |
-| `yara/` | Recovered-launcher marker constellation |
-| `suricata/` | Local regression selectors for plaintext handshake prefixes, including version bytes, at any offset in reassembled TCP data |
+| `sigma/` | Process creation, scheduled-task persistence, and screenshot-worker behavior |
+| `yara/` | Static marker constellation for the recovered Launcher |
+| `suricata/` | Regression checks for plaintext Launcher handshake markers in reassembled TCP traffic |
 
-The rules are experimental and should be tuned to local telemetry. See [`docs/detection-guide.md`](../docs/detection-guide.md) for evidence, correlation guidance, and false-positive boundaries.
+These are hunting candidates, not production-ready detections. Validate them against local telemetry before deployment. See the [detection guide](../docs/detection-guide.md) for supporting evidence, correlation guidance, and false-positive considerations.
 
-The CI engine job compiles the included Launcher YARA rule, converts and executes Sigma with a SQLite backend, and runs Suricata against synthetic captures. Positive and negative cases cover renaming, token boundaries, segmentation, coalescing, and wrong versions. These tests validate rule mechanics rather than production sensitivity or specificity. The Suricata signatures are local regression and are not complete protocol validators.
+CI compiles the Launcher YARA rule, converts and executes the Sigma rules with a SQLite backend, and runs Suricata against synthetic captures. Positive and negative tests cover file renaming, argument boundaries, TCP segmentation and coalescing, and incorrect protocol versions. These tests verify rule behavior; they do not measure production accuracy.
+
+The Suricata rules intentionally reproduce existing handshake-marker coverage for local regression testing. They are not presented as new detections or complete protocol validators.
