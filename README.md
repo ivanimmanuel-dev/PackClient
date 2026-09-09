@@ -5,7 +5,7 @@
 <p align="center"> <img width="257" height="222" alt="Tax_Notice_23665" src="https://github.com/user-attachments/assets/e8e1c36b-f4c8-49ac-86b4-f05237083478" /> 
 &nbsp;&nbsp;&nbsp; <img width="166" height="224" alt="nvdaHelperRemote" src="https://github.com/user-attachments/assets/675e5495-ff09-4227-9b39-66ebd2d16fd0" /> </p>
 
-Reconstruction of PackClient's launcher, PLK1 delivery, recovered Core, plugin-loading contracts, screenshot paths, persistence, and historical network behavior.
+From Launcher to recovered Core: A technical teardown of PackClient’s PLK1 delivery, plugin loading, screen-capture paths, persistence, and historical C2 traffic.
 
 <p align="center">
   <a href="https://ivanimmanuel-dev.github.io/PackClient/">Read the Publication</a>
