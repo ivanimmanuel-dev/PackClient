@@ -1,3 +1,6 @@
+<#
+Runs integration tests for the synthetic 1RCP peer and worker.
+#>
 [CmdletBinding()]
 param(
     [switch]$KeepArtifacts,
@@ -44,8 +47,8 @@ function Start-HiddenPowerShell([string]$Arguments) {
     $logPrefix = Join-Path $TestRoot ('process-' + [Guid]::NewGuid().ToString('N'))
     $process = Start-Process -FilePath $PowerShellExe -ArgumentList $Arguments -PassThru -WindowStyle Hidden `
         -RedirectStandardOutput ($logPrefix + '.stdout.txt') -RedirectStandardError ($logPrefix + '.stderr.txt')
-    # Cache the native handle before a redirected child can exit. Without it,
-    # Windows PowerShell may expose a null ExitCode after WaitForExit.
+    # Read the native handle before a redirected child exits; otherwise
+    # Windows PowerShell 5.1 may return a null ExitCode after WaitForExit.
     $null = $process.Handle
     return $process
 }
