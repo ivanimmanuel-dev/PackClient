@@ -2,7 +2,7 @@ import "pe"
 
 rule PackClient_Launcher_Marker_Constellation_2026 {
     meta:
-        description = "Detects the distinctive protocol and worker marker constellation in the recovered PackClientLauncher build"
+        description = "Detects the distinctive protocol and worker marker constellation in the recovered PackClientLauncher"
         author = "Ivan Immanuel Shaji"
         date = "2026-09-05"
         status = "experimental"
