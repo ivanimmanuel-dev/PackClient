@@ -18,8 +18,8 @@ From Launcher to recovered Core: A technical teardown of PackClient’s PLK1 del
 - Reconstruction of the worker-side `1RCP` interface: a 20-byte header, four message types, and top-down BGRX framebuffer data.
 - Recovered transport and authentication contracts: outer framing, the handshake, HMAC verification before AES-CBC decryption, and the PLK1 cache-validation path.
 - Recovered a 985,088-byte x86 `PackClientCore.dll` directly from historical PLK1 traffic.
-- Historical successful protocol progression through `PLH1 -> PLC1 -> PLA1 -> PLK1`, followed by bidirectional Core traffic and 15 `PV10` JPEG frames.
-- Recovery of the signed host’s invoked carrier export, the injected Donut package and terminal-loader ABI, the Core’s modern and legacy plugin-loading contracts, and its built-in `PV10` producer.
+- Reassembled a complete historical `PLH1 -> PLC1 -> PLA1 -> PLK1` session, followed by bidirectional Core traffic and 15 `PV10` JPEG frames.
+- Identified the signed host’s carrier export, the injected Donut package and terminal-loader ABI, the Core’s modern and legacy plugin-loading contracts, and its built-in `PV10` producer.
 - Mapped all 11 Core exports, the Launcher-to-Core ABI, six local settings, the Core-specific type-`0x16` encryption layer, staged plugin delivery and cache logic, DPAPI-protected Core-update storage, ETCHOOK clipboard replacement, and the main command handlers.
 - Runtime separation of two persistence paths: normal full-EXE execution persists `Tax_Notice_23665.exe`, while direct-DLL execution produces a broken `rundll32.exe` task without the original DLL argument.
 
@@ -48,7 +48,7 @@ flowchart TD
     B --> S["Active-session Handoff"]
     B --> R["1RCP Screenshot Worker"]
 
-    K -->|"8 verified PLK1 transfers"| CORE["PackClientCore.dll<br/>985,088-byte x86 DLL"]
+    K -->|"raw LZ4 + SHA-256 validation"| CORE["PackClientCore.dll<br/>985,088-byte x86 DLL"]
     CORE --> PABI["Plugin ABI + Legacy Main Loader"]
     CORE --> PV10["GDI/WIC PV10 JPEG Producer"]
     R -. "pre-existing local endpoint" .-> PEER["External 1RCP Peer<br/>(Unrecovered)"]
@@ -98,7 +98,7 @@ Additional reproducibility gaps are documented in [Evidence](docs/evidence.md) a
 
 ## Prior Work
 
-PackClient was previously documented by Proofpoint and Deception.Pro. This work adds implementation details from the recovered carrier, Launcher and Core build. See [Prior Work](docs/prior-work.md) for more details.
+PackClient was previously documented by Proofpoint and Deception.Pro. This work adds implementation details from the analyzed carrier and Launcher, and recovered Core. See [Prior Work](docs/prior-work.md) for more details.
 
 ## Citation
 
