@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PCAP/PCAPNG parser and TCP reassembler for the recovered PackClient protocol."""
+"""PCAP/PCAPNG parsing and TCP reassembly for PackClient Launcher traffic."""
 
 from __future__ import annotations
 
@@ -638,7 +638,7 @@ def analyze_capture(
     decode_lz4: bool = True,
     include_all_tcp: bool = False,
 ) -> dict[str, Any]:
-    """Ingest a capture and return per-flow protocol metadata."""
+    """Analyze a capture and return per-flow Launcher protocol metadata."""
     capture_format, packets = parse_capture(data)
     flow_segments: dict[tuple[Endpoint, Endpoint], dict[Endpoint, list[TCPSegment]]] = {}
     tcp_packet_count = 0
