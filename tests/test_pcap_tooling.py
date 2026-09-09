@@ -1,3 +1,4 @@
+"""Tests for PackClient capture parsing and TCP stream reconstruction."""
 import hashlib
 import hmac
 import ipaddress
@@ -291,7 +292,7 @@ class PcapToolingTests(unittest.TestCase):
     def test_extreme_pcapng_timestamp_does_not_crash_renderer(self):
         frame = ethernet_ipv4_tcp(frame_bytes(TYPE_PLAINTEXT, hello()), 1000)
         capture = pcapng([(2**64 - 1, frame)])
-        # if_tsresol=0 makes each tick a second, beyond datetime's calendar.
+        # PCAPNG if_tsresol=0 makes each timestamp tick one second, pushing this value beyond datetime's range.
         interface = block(1, struct.pack("<HHIHH", 1, 0, 65535, 9, 1) + bytes(4))
         capture = capture[:28] + interface + capture[48:]
         text = format_timeline(analyze_capture(capture))
