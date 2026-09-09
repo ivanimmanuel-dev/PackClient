@@ -1,6 +1,4 @@
 # Experimental, port-independent PackClient plaintext handshake selectors.
-# Retained for local regression/tool testing; these object-magic prefixes overlap
-# existing public Emerging Threats coverage and are not claimed as novel rules.
 # Candidate frame prefix + type 0x15 + object magic/version, at any stream offset.
 # This does not validate a complete object, HMAC, or application framing.
 
