@@ -188,7 +188,7 @@ PackPlugin.Registry.dll                 (UTF-16)
 PackPlugin_BrowserMgr_TryHandleExtRemote
 ```
 
-An offline Python implementation of this exact byte-string/PE condition matched the raw Core and all 352 mapped Core records while matching 0/86 mapped Launcher records and 0/30 surrounding/non-PE allocations. The check did not compile or execute a Core `.yar` file. It therefore establishes useful within-case candidate separation, not YARA-engine correctness or production validation. The candidate must be expressed as an actual rule and checked against broad benign and unrelated-malware corpora before publication as a production detector.
+An offline Python implementation of this exact byte-string/PE condition matched the raw Core and all 352 retained memory records from eight Core processes while matching 0/86 mapped Launcher records and 0/30 surrounding/non-PE allocations. The check did not compile or execute a Core `.yar` file. It therefore establishes useful within-case candidate separation, not YARA-engine correctness or production validation. The candidate must be expressed as an actual rule and checked against broad benign and unrelated-malware corpora before publication as a production detector.
 
 ## Hash and filename IOCs
 
@@ -200,7 +200,7 @@ An offline Python implementation of this exact byte-string/PE condition matched 
 | `nvdaHelperRemote.dll` | `7295090C2CB63EBC43F932451971C41F9D015D2741E97AE3D9855F5AE87CFF94` | Exact carrier identity |
 | Embedded launcher B | `46B34789196733FAB62193F0AAEDB198B09F1362F9B10CA1DD70CF81D68B01AD` | Static reconstruction; derived bytes not published |
 | Reconstructed `PackClientCore.dll` | `4DE6EF8647FB4B599966A233740CB0514D1E71B8019A1A1792ED7E1E514EDF1C` | Eight identical historical PLK1 transfers |
-| Reconstructed Core `.text` | `F06FF7AB6D62B761344CAECBCC6857912F7543F43C0E5FF462D2174BADB0CA3F` | Exact match across 352 mapped Core images |
+| Reconstructed Core `.text` | `F06FF7AB6D62B761344CAECBCC6857912F7543F43C0E5FF462D2174BADB0CA3F` | Exact match across 352 retained memory records from eight Core processes |
 | Protected injected package allocation | `E49581067CC2AA5ABD09C8DF42D6FBD87CB064A9363FE8B52D8369FD1C51FFE5` | Build-specific 417,792-byte memory identity across 12 July/August tasks; distinct from the 415,071-byte logical record |
 
 Filename leads:

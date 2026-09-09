@@ -31,7 +31,7 @@ Static claims are based on the identity-pinned reconstruction. Runtime claims ar
 | Cache uses current-user DPAPI | Strongly supported: resolved capabilities, inverse dataflow and metadata marker | Absolute cache base unresolved |
 | Secondary Core is an active failover slot | Not supported for this build | Both pull callers use slot 0; no promotion/cross-slot edge |
 | Pulled vector is Core | Direct independent reconstruction | Eight identical PLK1 transfers yield a 985,088-byte Core with SHA-256 `4DE6EF…DF1C` |
-| Mapped Core corresponds to reconstructed Core | Direct memory/section comparison | 352 mapped images share the exact 753,664-byte `.text` SHA-256 `F06FF7…CA3F` |
+| Mapped Core corresponds to reconstructed Core | Direct memory/section comparison | All 352 retained memory records from eight Core processes share the exact 753,664-byte `.text` SHA-256 `F06FF7…CA3F` |
 | Launcher-to-Core ABI | Direct static agreement between both recovered implementations | ABI 1 and the five-field configuration view are closed for this build |
 | Core local configuration and application envelope | Direct static key/config census | Six INI keys; domain-separated SHA-256 AES/HMAC derivation; no deployed `auth_psk` or encrypted-Core packet recovered |
 | Core plugin loading exists | Direct static implementation | Modern ABI and legacy `Main` paths recovered; no plugin binary delivered in preserved artifacts |

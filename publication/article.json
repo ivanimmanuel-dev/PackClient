@@ -138,11 +138,11 @@
     {
       "id": "core",
       "title": "The delivered Core is recovered",
-      "deck": "Eight transfers, 352 mapped images and the Core's own code connect PLK1 delivery to post-delivery behavior.",
+      "deck": "Eight transfers, 352 retained records across eight Core processes and the Core's own code connect PLK1 delivery to post-delivery behavior.",
       "blocks": [
         {
           "type": "md",
-          "text": "All eight complete PLK1 transfers—four in `260715-wd77daas7l` and four in `260716-dhnz7aft6z`—produce one canonical 985,088-byte x86 `PackClientCore.dll`, SHA-256 `4DE6EF8647FB4B599966A233740CB0514D1E71B8019A1A1792ED7E1E514EDF1C`. A separate census of 352 mapped Core images matches its 753,664-byte `.text`, SHA-256 `F06FF7AB6D62B761344CAECBCC6857912F7543F43C0E5FF462D2174BADB0CA3F`.\n\nAll 11 exports are accounted for, including `Main`, `MainMinimal`, `MainWithConfig`, `RunWithConfig`, `PackClientDll_AbiVersion`, `PackClientDll_Run`, `PackClientDll_TrySystemSessionHandoff`, `PackClient_AllocStoredPluginImageW`, `PackClient_FreeStoredPluginImage`, `ProbeEntry` and `RunDualWithConfig`. `PackClientDll_Run` confirms the Launcher's five-field view: host at `+0x00`, 16-bit port at `+0x04`, group at `+0x08`, optional tag at `+0x0C`, and optional configuration string at `+0x10`. [Core ABI and exports](references/core-and-artifact-audit.html)"
+          "text": "All eight complete PLK1 transfers—four in `260715-wd77daas7l` and four in `260716-dhnz7aft6z`—produce one canonical 985,088-byte x86 `PackClientCore.dll`, SHA-256 `4DE6EF8647FB4B599966A233740CB0514D1E71B8019A1A1792ED7E1E514EDF1C`. A separate census found 352 retained memory records from eight Core processes; every record's 753,664-byte `.text` matches SHA-256 `F06FF7AB6D62B761344CAECBCC6857912F7543F43C0E5FF462D2174BADB0CA3F`.\n\nAll 11 exports are accounted for, including `Main`, `MainMinimal`, `MainWithConfig`, `RunWithConfig`, `PackClientDll_AbiVersion`, `PackClientDll_Run`, `PackClientDll_TrySystemSessionHandoff`, `PackClient_AllocStoredPluginImageW`, `PackClient_FreeStoredPluginImage`, `ProbeEntry` and `RunDualWithConfig`. `PackClientDll_Run` confirms the Launcher's five-field view: host at `+0x00`, 16-bit port at `+0x04`, group at `+0x08`, optional tag at `+0x0C`, and optional configuration string at `+0x10`. [Core ABI and exports](references/core-and-artifact-audit.html)"
         },
         {
           "type": "figure",
@@ -388,7 +388,7 @@
   "status": "PackClient Launcher, recovered Core and historical transport evidence",
   "abstract": "This report reconstructs the PackClient Launcher and independently recovers its 985,088-byte Core from eight historical PLK1 transfers. Public sandbox streams establish successful Launcher authentication, Core delivery, post-Core traffic and 15 PV10 JPEG frames, while local and September reruns preserve separate failed-attempt evidence. The signed-host export, injected Donut package, terminal-loader ABI, Core plugin contracts and built-in preview producer are recovered; the carrier's exact static write primitive, plugin binaries, the external 1RCP peer and a bridge between 1RCP and PV10 remain unresolved.",
   "key_findings": [
-    "Eight verified PLK1 transfers reconstruct one 985,088-byte <code>PackClientCore.dll</code> and match 352 mapped Core images.",
+    "Eight verified PLK1 transfers reconstruct one 985,088-byte <code>PackClientCore.dll</code>, whose <code>.text</code> matches all 352 retained memory records from eight Core processes.",
     "Historical captures preserve <code>PLH1 -> PLC1 -> PLA1 -> PLK1</code>, post-Core traffic and 15 <code>PV10</code> JPEG frames.",
     "Direct-DLL <code>rundll32</code> persistence is a nonfunctional sandbox-context artifact, not a second PackClient variant."
   ]
