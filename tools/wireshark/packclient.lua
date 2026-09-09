@@ -1,4 +1,4 @@
--- PackClient framing, handshake, PLK1, and envelope metadata dissector.
+-- PackClient Launcher framing, handshake, PLK1, and encrypted-envelope metadata dissector.
 
 local packclient = Proto("packclient", "PackClient Launcher Transport")
 local bitlib = bit32 or bit
@@ -240,9 +240,9 @@ local function valid_heuristic_start(tvb)
         return false
     end
 
-    -- A four-byte split can be claimed only when the declared size matches
-    -- one of the recovered fixed-size plaintext objects. This preserves
-    -- desegmentation without treating the 10-bit frame prefix alone as enough.
+    -- Claim a four-byte split only when its declared size matches a known
+    -- fixed-size plaintext object. This permits desegmentation without accepting
+    -- the frame prefix alone.
     if tvb:len() < 8 then
         return KNOWN_PLAINTEXT_BODY_LENGTHS[body_length] == true
     end
@@ -303,5 +303,5 @@ packclient:register_heuristic("tcp", function(tvb, pinfo, tree)
     return true
 end)
 
--- Decode As remains available for split, mid-stream, or otherwise ambiguous captures.
+-- Decode As supports split, mid-stream, and otherwise ambiguous captures.
 DissectorTable.get("tcp.port"):add_for_decode_as(packclient)
