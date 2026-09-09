@@ -165,7 +165,7 @@ The captures also validate the ordered plaintext handshake `PLH1 -> PLC1 -> PLA1
 
 ### Type-0x16 is phase-dependent
 
-The recovered Core has its own authenticated type-`0x16` format with a little-endian ciphertext length and key material derived from local `auth_psk` using PBKDF2-HMAC-SHA-256 (100,000 iterations; salt `PackClientCore.AppAuth`; 64 derived bytes split into AES/HMAC material). This differs from the Launcher's pre-Core type-`0x16` envelope above, whose ciphertext length is big-endian and whose key-state writer remains unresolved.
+The recovered Core has its own authenticated type-`0x16` format with a little-endian ciphertext length. When local `auth_psk` is nonempty, it derives independent keys as `SHA256("PACKAPP|AES256|v1|" || raw_psk)` and `SHA256("PACKAPP|HMAC|v1|" || raw_psk)`. An empty PSK clears the ready flag and both keys. This differs from the Launcher's pre-Core type-`0x16` envelope above, whose ciphertext length is big-endian and whose key-state writer remains unresolved.
 
 Parsers must therefore select the type-`0x16` layout by Launcher/Core phase; the common outer type number is not a sufficient discriminator. Full Core behavior and validation boundaries are in the [Core and artifact audit](core-and-artifact-audit.md).
 

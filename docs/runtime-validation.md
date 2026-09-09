@@ -28,7 +28,7 @@ Raw B copies of `.data`, `.fptable`, `.rsrc` and `.reloc` match their correspond
 \BaseNamedObjects\PackClientLauncher.Session.9b2126fc5ed31443
 ```
 
-The package coordinates, PE metadata, section correspondence, A-entry thread, VMMap layout and named state provide converging evidence that the reconstructed A/B chain was resident and active. Static A contains B's local mapper. A later carrier closure pass identifies the upstream primitive as section-backed local-to-remote mapping followed by primary-thread-context redirection; the original local dump alone did not establish that mechanism.
+The package coordinates, PE metadata, section correspondence, A-entry thread, VMMap layout and named state provide converging evidence that the reconstructed A/B chain was resident and active. Static A contains B's local mapper. Later Triage tasks independently record remote writes of the stable package and `SetThreadContext` against the newly created surrogate's primary thread. The exact carrier-side write API/call site and installed instruction-pointer value remain unresolved, and the original local dump alone did not establish the upstream mechanism.
 
 ### Configuration and connection attempt
 

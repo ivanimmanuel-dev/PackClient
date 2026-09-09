@@ -29,7 +29,7 @@ Three carrier call sites establish its process-creation contracts:
 | `0x18E2` | `ShellExecuteExW`, verb `runas`, current module path, null parameter and directory fields | Requests self-elevation |
 | `0x1BEB` | `CreateProcessW`, `System32`/`SysWOW64` `svchost.exe` path, null command line, flags `0x08000004` (`CREATE_NO_WINDOW` plus `CREATE_SUSPENDED`) | Creates a suspended surrogate |
 
-The last call's returned handles feed a section-backed local-to-remote mapping sequence: a pagefile-backed section is created with `NtCreateSection`, mapped into the carrier and suspended surrogate with `NtMapViewOfSection`, populated through the local view with `RtlCopyMemory`, and locally unmapped. On the x64-to-WOW64 path, `Wow64SetThreadContext` redirects the primary thread's EIP to the remote section base before `ResumeThread`. These static paths support the task, elevation and bare-surrogate observations in [runtime validation](runtime-validation.md). This establishes the placement and initial execution primitive at the parent-technique level; it should not be relabelled as classic image replacement without further evidence. None of the three launch sites constructs a screenshot-worker invocation or transfers its endpoint.
+The last call's returned handles feed native/WOW64 thread-context get/set and `ResumeThread` operations in the carrier function at `0x1900`. Triage separately records remote writes of the stable package followed by `SetThreadContext` on the newly created surrogate's primary thread. Together these establish remote package placement and primary-thread execution hijacking. The carrier's exact static write call site/API and the precise instruction-pointer value installed by `SetThreadContext` remain unresolved. The evidence therefore supports thread execution hijacking, not classic image replacement or remote-thread creation. None of the three launch sites constructs a screenshot-worker invocation or transfers its endpoint.
 
 The carrier reads its own or same-directory file through a whole-file read-only mapping. The recovered path uses `GetModuleFileNameW` at carrier RVA `0x1156`, the same-buffer call at `0x1165`, and mapping function `0x2100`. It calculates the maximum PE section raw end, `0x4E00`, and reads the appended record there.
 
@@ -49,9 +49,9 @@ The header bytes are `70 00 00 00 5F 55 06 00`. The deterministic transform prod
 | `0x0128D–0x6228D` | Executable A |
 | `0x01CC1–0x442C1` | Executable B, nested inside A's `.rdata` |
 | `0x6228D–0x627C5` | `0x538` bytes of NUL padding |
-| `0x627C5–0x6555F` | Terminal x86 loader candidate, 11,674 bytes |
+| `0x627C5–0x6555F` | Terminal region: four-byte ABI glue, 11,647-byte Donut loader, 23 zero bytes |
 
-The terminal 11,674-byte loader is byte-identical to the pinned official Donut v1.1 loader family. Its call-return-address `pop` supplies the embedded loader/config pointer, closing the terminal-loader ABI and supporting a specific Donut attribution independently of the configuration string.
+At record offset `0x627C5`, four-byte glue (`pop ecx; pop edx; push ecx; push edx`) recovers the embedded-instance pointer from the opening `CALL` return address while preserving the caller return address. The following 11,647 bytes, beginning at `0x627C9`, are byte-identical to Donut `LOADER_EXE_X86` at commit `47758d787209dd1744f58c140102ac91b649df16`; their SHA-256 is `0C29CCCFF1B027D57C467564A333E9ADE455144649909A4B797B09B43002AC71`. The terminal region ends with 23 zero bytes. This closes the terminal-loader ABI and supports build-specific Donut attribution without incorrectly treating the glue/padding as part of the compared loader.
 
 ## A maps B inside the current process
 
@@ -59,7 +59,7 @@ A is a native PE32 x86 executable with three sections, timestamp `0x6A27AE4B`, e
 
 At A RVA `0x2000`, the 52-byte prefix preceding B comprises ten import-thunk DWORDs (nine entries plus terminator), `PACKPAY1` at `0x2028`, and B's raw size `0x42600` at `0x2030`. B begins at A RVA `0x2034`.
 
-A validates that descriptor and B's PE headers, allocates the declared image size, copies file-backed headers/sections, applies relocations, resolves imports, handles a TLS directory if present, and applies section protections. A calls the mapped entry at A RVA `0x145F`; B has no TLS directory. A performs this B mapping inside the surrogate after the carrier's section-backed mapping and primary-thread redirection starts the upstream package.
+A validates that descriptor and B's PE headers, allocates the declared image size, copies file-backed headers/sections, applies relocations, resolves imports, handles a TLS directory if present, and applies section protections. A calls the mapped entry at A RVA `0x145F`; B has no TLS directory. A performs this B mapping inside the surrogate after the injected Donut package starts A.
 
 ## B identity and coordinate map
 

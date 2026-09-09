@@ -19,7 +19,8 @@ Reconstruction of PackClient's launcher, PLK1 delivery, recovered Core, plugin-l
 - Recovered transport and authentication contracts: outer framing, handshake, authenticated AES-CBC receive ordering, and the PLK1 cache acceptance path.
 - Byte-exact recovery of a 985,088-byte x86 `PackClientCore.dll` from eight complete historical PLK1 transfers, with matching plaintext and mapped-`.text` identities.
 - Historical successful protocol progression through `PLH1 -> PLC1 -> PLA1 -> PLK1`, followed by bidirectional Core traffic and 15 `PV10` JPEG frames.
-- Static recovery of the carrier's section-backed remote mapping, the signed host's invoked carrier export, the Core's modern and legacy plugin-loading contracts, and its built-in `PV10` producer.
+- Independent recovery of the signed host's invoked carrier export, the injected Donut package and terminal-loader ABI, the Core's modern and legacy plugin-loading contracts, and its built-in `PV10` producer.
+- Core closure includes all exports, the Launcher ABI, six local configuration keys, phase-specific application encryption, staged plugin/update storage, ETCHOOK clipboard replacement, and the major command/subsystem census.
 - Runtime separation of the normal full-EXE persistence path from the direct-DLL `rundll32` sandbox artifact; no second PackClient variant was established.
 
 ## Recovered architecture

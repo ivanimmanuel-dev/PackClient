@@ -118,6 +118,8 @@ dpapi_current_user_v1
 
 The absolute base path was not resolved. Search user-profile and application-data locations, but treat filename/string hits as supporting evidence. The reconstructed active call path does not select the secondary slot.
 
+The recovered Core adds two distinct storage leads. Plugin objects use paired current-user-DPAPI files under `pluginsdata\x86\blobs\<name>.pblob` and `pluginsdata\x86\meta\<name>.json`, with description `PackMonitorClient.PluginStore` and entropy `PackMonitorClient.PluginStore.v1`. Core updates use current-user DPAPI under `HKCU\Software\PackMonitorClient\LauncherDllStore\<bits>\Primary`. Neither store was populated in the reviewed tasks, so these remain static hunting candidates requiring benign-prevalence checks.
+
 ## Memory and local IPC pivots
 
 For a suspicious surrogate, useful collection targets include:
@@ -167,7 +169,24 @@ The reviewed rules do not semantically join higher-layer Core exchanges such as 
 
 ### Non-duplicative YARA boundary
 
-A reconstructed-Core candidate separated all 352 mapped Core records from 86 within-case non-Core records in the retained audit corpus. That is useful internal discrimination, not production validation. A publishable rule should combine several implementation anchors—rather than a single export, PDB suffix, plugin API or `PV10` literal—and must be checked against a broad benign corpus first. The main repository therefore records the candidate direction without presenting an unvalidated new rule as production-ready.
+A reconstructed-Core candidate required PE structure plus all of:
+
+```text
+PackClientCore.dll
+PackClientDll_Run
+PackClient_AllocStoredPluginImageW
+```
+
+and at least three of:
+
+```text
+PackMonitorClient.PluginStore.v1
+PackPlugin_GetFeatureId
+PackPlugin.Registry.dll                 (UTF-16)
+PackPlugin_BrowserMgr_TryHandleExtRemote
+```
+
+It matched the raw Core and all 352 mapped Core records while matching 0/86 mapped Launcher records and 0/30 surrounding/non-PE allocations. That is useful internal discrimination, not production validation. It must be checked against a broad benign and unrelated-malware corpus before becoming a published production rule.
 
 ## Hash and filename IOCs
 
@@ -200,7 +219,7 @@ Names are mutable and should not be the only detection condition.
 | [T1053.005 — Scheduled Task/Job](https://attack.mitre.org/techniques/T1053/005/) | `NvSvc` at-logon persistence | Confirmed in runtime evidence |
 | [T1113 — Screen Capture](https://attack.mitre.org/techniques/T1113/) | GDI worker and BGRX response contract | Confirmed implementation; live frame not completed |
 | [T1134.002 — Create Process with Token](https://attack.mitre.org/techniques/T1134/002/) | Duplicated/retargeted token passed to `CreateProcessAsUserW` | Confirmed implementation |
-| [T1055 — Process Injection](https://attack.mitre.org/techniques/T1055/) | Carrier creates a section, maps it locally and remotely, copies into the local view, redirects the suspended surrogate's primary thread and resumes it | Confirmed at parent-technique level; avoid over-specific hollowing terminology |
+| [T1055.003 — Thread Execution Hijacking](https://attack.mitre.org/techniques/T1055/003/) | Carrier creates a suspended surrogate; Triage records remote package writes followed by primary-thread `SetThreadContext` and execution | Confirmed behavior; exact static write call site and instruction-pointer value remain unresolved; do not label it classic hollowing |
 
 ## Triage order
 

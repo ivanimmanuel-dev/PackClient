@@ -6,13 +6,13 @@ This publication reconstructs one PackClient launcher build and its independentl
 
 | Boundary | Established | Not established |
 |---|---|---|
-| Core | Eight PLK1 transfers reconstruct the same 985,088-byte DLL; exports, major subsystems and mapped `.text` identity recovered | Server implementation, every internal function's semantic name, or a second Core build |
-| Plugins | Modern ABI and legacy loader, request/cache grammar and feature bindings | Any delivered plugin binary or observed `CLIENTCOREUPD` transaction |
+| Core | Eight PLK1 transfers reconstruct the same 985,088-byte DLL; all exports, six local keys, ABI, application envelope, major subsystems and mapped `.text` identity recovered | Server implementation, deployed `auth_psk`, encrypted-Core capture, every internal function's semantic name, or a second Core build |
+| Plugins and Core update | Modern ABI and legacy loader, staged request grammar, protected stores, feature bindings and update command/storage recovered | Any delivered plugin binary, paired cache object, activated plugin mapping, or observed `CLIENTCOREUPD` transaction |
 | Screenshot peer | Worker command grammar, endpoint open and five-DWORD `1RCP` contract | Endpoint creator, initial launcher, peer identity or downstream pixel consumer |
 | Screenshot runtime | Real worker reached the capture/copy path; final attempt shows an AV and zero-byte READY timeout | Completed real exchange or causal failure diagnosis |
 | DIB lifetime | Deletion call precedes the later bits-pointer copy | Successful deletion return or causal use-after-free proof |
 | Envelope keys | Separate 32-byte AES and HMAC key globals gated by a ready byte | Key values, derivation, initializer/writer, activation time or successful encrypted receive |
-| In-memory launcher state | Package/A/B private mappings, exact PE/section anchors, A-entry thread, section-backed remote mapping and primary-thread redirection | A second carrier build or complete runtime trace of every native call |
+| In-memory launcher state | Package/A/B private mappings, exact PE/section anchors, A-entry thread, remote package writes and primary-thread context hijacking | Exact carrier write API/call site, installed instruction pointer, a second carrier build, or a complete native trace |
 | Network | Local sessions show timeout/failed SYNs; historical July captures show full Launcher handshake, PLK1 and Core traffic | Server implementation, September response cause, or plugin delivery |
 | Session continuity | Exact token, spawn and drift logic | Successful runtime active-session replacement |
 | Mutex export | Exact close-and-clear effect | External caller or invocation |

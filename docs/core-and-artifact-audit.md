@@ -15,6 +15,7 @@ The complete working record, source ledger and all analyst screenshots remain in
 
 | Source | Role in this audit | Boundary |
 |---|---|---|
+| [PackClient-LAB Phase 5A audit](https://github.com/ivanimmanuel-dev/PackClient-LAB/blob/main/docs/phase5a-public-artifact-core-and-detection-audit.md) | Complete working record, machine-readable ledgers, modular reports and figure provenance | Research source of record; raw malware, memory and packet bytes remain excluded from Git |
 | [Proofpoint, *Carry-On Compromise: TA4922 Packs PackClient*](https://www.proofpoint.com/us/blog/threat-insight/carry-compromise-ta4922-packs-packclient) | Campaign anchor, family naming, prior protocol/plugin reporting and ET coverage | Public reporting, not independent validation of the artifacts below |
 | [Deception.Pro, *New PackClient & HOK (Aug 2026)*](https://blog.deception.pro/blog/new-packclient-hok-aug2026) | Later PackClient/hands-on-keyboard and ManageEngine follow-on context | Public prior reporting; private backend artifacts were not available to this audit |
 | [MalwareBazaar `7108FF…F85A`](https://bazaar.abuse.ch/sample/7108ff29916d064216aa2ece7fb395f1e3a73d12d19895bffc0bd46806cbf85a/) | Public campaign ZIP identity and source of the Tax Notice lineage | Artifact identity only |
@@ -60,14 +61,37 @@ The filtered PCAPNG used for the Wireshark validation is 762,668 bytes with SHA-
 
 ## Core identity and entry surface
 
-The recovered object identifies as `PackClientCore.dll`; its CodeView path ends in `\Project\Bin\Plugins\Win32\PackClientCore.pdb`. Its exported surface includes:
+The recovered object identifies as `PackClientCore.dll`; its CodeView path ends in `\Project\Bin\Plugins\Win32\PackClientCore.pdb`. It is a PE32/IA-32 DLL with preferred image base `0x10000000`, image size 1,114,112 bytes, entry RVA `0x81502`, six sections and 358 imports from 16 Windows DLLs. The entry point is ordinary DLL/security-cookie startup, not another exported command path.
 
-- `Main`, `MainMinimal`, `MainWithConfig` and `RunWithConfig`;
-- `PackClientDll_AbiVersion`, `PackClientDll_Run`, and `PackClientDll_TrySystemSessionHandoff`;
-- `PackClientDll_PluginStore_AllocImage` and `PackClientDll_PluginStore_FreeImage` wrappers;
-- `ProbeEntry` and `RunDualWithConfig`.
+All 11 exports are accounted for:
 
-The Launcher export-resolution order documented elsewhere is therefore confirmed against an independently reconstructed implementation.
+| Ordinal | Export | RVA | Recovered role |
+|---:|---|---:|---|
+| 1 | `Main` | `0xC0BD` | Main runtime |
+| 2 | `MainMinimal` | `0xC23C` | Thin probe returning 7 |
+| 3 | `MainWithConfig` | `0xC240` | Stores two endpoint tuples and enters `Main` |
+| 4 | `PackClientDll_AbiVersion` | `0x232B` | Returns ABI 1 |
+| 5 | `PackClientDll_Run` | `0x232F` | Primary Launcher configuration-view ABI |
+| 6 | `PackClientDll_TrySystemSessionHandoff` | `0x2761` | Session-handoff entry |
+| 7 | `PackClient_AllocStoredPluginImageW` | `0x19C6F` | Stored plugin-image allocation wrapper |
+| 8 | `PackClient_FreeStoredPluginImage` | `0x19D4D` | Matching release wrapper |
+| 9 | `ProbeEntry` | `0xC459` | Thin probe returning 1234 |
+| 10 | `RunDualWithConfig` | `0xC45F` | Dual-link startup |
+| 11 | `RunWithConfig` | `0x276D` | Single-tuple wrapper |
+
+## Launcher-to-Core ABI closure
+
+`PackClientDll_Run(view, flags)` interprets the Launcher-supplied view as:
+
+| Offset | Core interpretation |
+|---:|---|
+| `+0x00` | Required nonempty host pointer |
+| `+0x04` | Required nonzero 16-bit port |
+| `+0x08` | Group pointer; absent/empty becomes `default` |
+| `+0x0C` | Optional tag pointer |
+| `+0x10` | Optional configuration-string pointer |
+
+This confirms the Launcher's previously reconstructed calling edge. Launcher requires ABI 1, prefers `RunWithConfig`, otherwise calls `PackClientDll_Run(view, 0)`, and only then falls back to `Main`.
 
 ## Historical successful transport
 
@@ -79,18 +103,91 @@ PLH1 (client) -> PLC1 (server) -> PLA1 (client) -> PLK1 (server)
 
 The endpoint is `154[.]36[.]188[.]201:443`. The traffic is raw PackClient framing on TCP/443, not TLS. After Core delivery, the same historical captures contain bidirectional Core application traffic, including plaintext `INP` hello, `SYS` startup probe/response, `KTL OFFLINE`, screen-preview enable/request acknowledgements, and 15 type-18 `PV10` JPEG frames.
 
+Aggregate post-delivery frame counts across the eight successful captures are:
+
+| Direction/type | Frames |
+|---|---:|
+| Client types 1 / 2 / 3 / 11 / 17 / 18 | 654 / 160 / 363 / 343 / 42 / 15 |
+| Server types 1 / 2 / 3 / 10 | 160 / 643 / 392 / 33 |
+| Either direction type 22 (`0x16`) | 0 |
+
+All 15 client type-18 frames begin with `PV10` and contain valid JFIF/JPEG structure. No encrypted-Core type-`0x16` frame appears in the July corpus, so the visible commands are genuine plaintext observations and missing plugin traffic cannot be blamed on unavailable decryption.
+
 This establishes a successful historical C2/application session in those public runs. It does **not** establish that the September reruns succeeded: `260908-zwr5naybjb` and `260909-abma8sab28` completed TCP/greeting attempts but received no application response, so they show repeated PLH1 retries and no PLC1, PLK1, Core or plugin delivery.
+
+The two-mode `260908-zwr5naybjb` task reconstructed 492 complete greetings and 19,680 client application bytes in full-EXE mode, plus 501 greetings and 20,040 bytes in direct-DLL mode; both received zero server application bytes. The later `260909-abma8sab28` full-EXE task reconstructed 283 complete greetings and 11,320 client application bytes, again with zero server bytes. DNS for `c.pki.goog` and an HTTP CRL response independently establish working general sandbox networking in the latter run; the Windows NCSI icon was not proof of network isolation.
+
+## Core configuration and authenticated application envelope
+
+The complete Core-local `settings.ini` key set is:
+
+| Section | Key | Default | Recovered role |
+|---|---|---:|---|
+| `pack` | `fragment_assembler_max_mb` | 0 | Fragment-assembler size override |
+| `pack` | `uplink_dns_poll_sec` | 300 | Uplink DNS re-resolution interval |
+| `pack` | `tls_ca_path` | empty | Optional CA path |
+| `pack` | `tls_skip_verify` | 0 | TLS-verification bypass flag |
+| `pack` | `auth_psk` | empty | Optional application-envelope PSK |
+| `preview` | `enabled` | 1 | Built-in preview gate |
+
+When `auth_psk` is absent or empty, Core clears the application-crypto-ready flag and zeroes both keys. Otherwise it derives them directly:
+
+```text
+AES_key  = SHA256(ASCII("PACKAPP|AES256|v1|") || raw_auth_psk_bytes)
+HMAC_key = SHA256(ASCII("PACKAPP|HMAC|v1|")   || raw_auth_psk_bytes)
+```
+
+This is not PBKDF2 and is separate from Launcher handshake authentication. Core's authenticated outer type-`0x16` body is version 1, a 16-byte random IV, a four-byte little-endian ciphertext length, AES-256-CBC ciphertext with block padding, and a 32-byte HMAC-SHA-256 over `version || IV || LE32(length) || ciphertext`. Authentication precedes decryption. The Launcher uses a different, big-endian length field and unresolved key state, so phase-aware parsing is mandatory.
 
 ## Core plugin system and missing plugin bytes
 
 The Core contains two plugin-loading paths:
 
-1. A modern ABI path resolves `PackPlugin_GetAbiVersion`, `PackPlugin_GetFeatureId` and `PackPlugin_OnLoad`, validates feature identity, and binds feature-specific host functions.
-2. A legacy path resolves `Main` from a loaded plugin image.
+1. The modern path requires `PackPlugin_GetFeatureId`; optional `PackPlugin_GetAbiVersion` must return 1, and optional `PackPlugin_OnLoad` is called when present. ScreenCore, VirtualDesktop and FastGuiScreen additionally require their feature-specific `BindHostAtomics` export.
+2. The legacy/cache-run path maps an in-memory PE, resolves literal export `Main`, verifies with `VirtualQuery` that the export belongs to that image, and starts it in a thread.
 
-Recovered feature contracts include screen/remote-screen, virtual desktop and fast-GUI bindings. The network grammar includes staged `Q|PLUGIN|…` requests and cache-store paths. These prove that the recovered Core can request, validate, cache and activate additional modules.
+Canonical feature mappings recovered from Core are:
 
-No plugin PE was present in the captured PLK1 transfers, mapped-memory census, cache artifacts or available dumped files. No `CLIENTCOREUPD` transaction was observed. The absence is scoped to the preserved evidence: the protocol and loader are present, but no plugin binary can be responsibly published or attributed from these runs.
+| Feature | Canonical DLL |
+|---|---|
+| `remote_screen` | `PackPlugin.ScreenCore.dll` |
+| `virtual_desktop` | `PackPlugin.VirtualDesktop.dll` |
+| `file_management` | `PackPlugin.FileManager.dll` |
+| `system_management` | `PackPlugin.SystemManagement.dll` |
+| `registry` | `PackPlugin.Registry.dll` |
+| `remote_terminal` | `PackPlugin.RemoteTerminal.dll` |
+| `proxy_tunnel` | `PackPlugin.Proxy.dll` |
+| `remote_video` | `PackPlugin.RemoteVideo.dll` |
+| `fast_gui_screen` | `PackPlugin.FastGuiScreen.dll` |
+| `tg_tool` | `PackPlugin.TgTool.dll` |
+| `browser_mgr` | `PackPlugin.BrowserMgr.dll` |
+
+The broader classifier maps `screenblank` and `openh264*.dll` to `remote_screen`, `webcam` to `remote_video`, and `turbojpeg*.dll` to `fast_gui_screen`; those codec files can therefore be sidecars rather than primary plugins.
+
+Modern `Q|PLUGIN|op=2` delivery is an `init -> chunk -> commit` transaction. It carries a request/transaction ID, normalized base64 filename, mandatory MD5, optional SHA-256, original and compressed sizes, offset and base64 data. Staged mode uses raw LZ4 and bounds plaintext at 128 MiB and compressed input at 256 MiB. Receipt is ordered and idempotent: exact retransmission is accepted as `chunk_dup`, matching overlap appends only the new tail, future offsets return `chunk_offset`, and conflicting overlap returns `chunk_conflict`. Commit requires exact compressed length, decompressed size and digest agreement. Legacy op=2 also accepts a complete LZ4/zlib object; `kind=uprun` is a separate executable-write/launch path, not a plugin-DLL variant.
+
+The file-backed plugin store uses current-user DPAPI with description `PackMonitorClient.PluginStore`, entropy `PackMonitorClient.PluginStore.v1` and UI-forbidden mode. Its primary x86 layout is:
+
+```text
+<derived-root>\pluginsdata\x86\blobs\<normalized-file>.pblob
+<derived-root>\pluginsdata\x86\meta\<normalized-file>.json
+```
+
+Loading requires the paired blob and JSON, the same user DPAPI context, MD5 agreement and expected PE machine. A `.pblob` alone is insufficient. Protocol text `store=registry` refers to Core's internal module registry, not a Windows Registry location. Sidecars are stored but not directly loaded; some primary features are registry-only until later activation. Plugin operations 4 and 5 define feature-specific physical-channel creation and HMAC authentication, but no reviewed task exercised them.
+
+No plugin PE, sidecar, paired `.pblob`/JSON, plugin-only mapping, plaintext staged transaction, completed activation, or encrypted Core frame was present in the captured PLK1, packet, memory, cache or dumped-file corpus. This negative result is scoped to preserved evidence: static analysis cannot manufacture missing plugin bytes. Future recovery requires a decrypted transaction, paired cache plus DPAPI context, post-activation memory, or a backend-only sandbox object.
+
+## Core-update storage
+
+`Q|EXT|CLIENTCOREUPD|op=put` receives base64 LZ4/zlib content over the existing command channel, validates the decompressed size and MD5, then protects it with current-user DPAPI. WinHTTP belongs to other branches of the same large dispatcher and is not the Core-update delivery mechanism.
+
+The update store is:
+
+```text
+HKCU\Software\PackMonitorClient\LauncherDllStore\<bits>\Primary
+```
+
+It records plaintext SHA-256, encoding label `dpapi_v1`, protected size, chunk count, and protected binary chunks `p%u` of at most `0x80000` bytes. The DPAPI description is `PackMonitorClient.LauncherDllStore` and entropy is `PackMonitorClient.LauncherDllStore.Primary.v1`. The older `Q|COREUPD|CHECK|` branch reads the same store. No matching update transaction was observed.
 
 ## Built-in PV10 producer
 
@@ -103,28 +200,29 @@ GDI capture / StretchBlt / GetDIBits
   -> Core transport type 18
 ```
 
-The serializer emits the `PV10` marker and matches all 15 historical type-18 frames. This establishes that Core itself produces the observed JPEG preview traffic. It does not prove that the Launcher's separate raw-BGRX `1RCP` worker feeds this path; the endpoint creator/consumer that would bridge those two interfaces remains missing.
+The implementation spans GDI capture/scaling at RVA `0x23B4F`, WIC JPEG encoding at `0x231AC`, and the bytewise `PV10` serializer at `0x236D0`. The normal thumbnail path at `0x241ED` uses a maximum dimension of 160 and quality 35; adaptive `VIEW` handling at `0x22C39` retries within a requested size limit. The `PREVIEW|REQ` dispatcher is at `0x313B3`.
 
-## Core authentication and type-0x16 phase boundary
+The serializer appends `P`, `V`, `1`, `0`, a four-byte little-endian JPEG length and the JPEG bytes. All 15 historical type-18 frames agree exactly, including JFIF prefix structure. This establishes that Core itself produces the observed JPEG preview traffic. It does not prove that the Launcher's separate raw-BGRX `1RCP` worker feeds this path; the endpoint creator/consumer that would bridge those two interfaces remains missing.
 
-Core configuration includes local settings and an `auth_psk` path deriving 64 bytes with PBKDF2-HMAC-SHA-256, 100,000 iterations and salt `PackClientCore.AppAuth`, split into AES and HMAC material. Core's type-`0x16` record uses a little-endian ciphertext length. The Launcher's pre-Core type-`0x16` envelope uses a big-endian ciphertext length and separate unresolved key state.
+## Command, subsystem and ETCHOOK closure
 
-The shared outer type number therefore does not imply one wire layout. Any parser or dissector must select the layout by protocol phase/connection state rather than attempting a single endian interpretation.
+Every export, Core-specific INI key, code-referenced primary command family, major subsystem and previously unexplained function of at least 2,000 bytes was classified. The inventory covers system/file/process/registry/task queries; plugin, payload and Core-update paths; extension routing; screen/input/preview channels; `PIPE|FGUI|`, `PIPE|PHYS|` and `PIPE|990|`; keylogger/clipboard operations; TCP/UDP/proxy/admin forwarding; shell commands; and webcam handling. Imports and handlers prove capability, not operator activation.
+
+The concrete ETCHOOK path reads ANSI and Unicode clipboard text, evaluates configured regular expressions, replaces matching text, empties the clipboard and writes both Unicode and ANSI replacement values. Its built-in table includes address-pattern families consistent with Bitcoin, Litecoin, `t1`/`t3`, NEAR, ICP, Ethereum-style `0x`, and `cro1`. `Q|EXT|ETCHOOK|PERCLIENT|` carries state plus `regex_b64` and `repl_b64`; `Q|EXT|ETCHOOK|SYNC|` accepts a bulk/base64 rule object. Proofpoint had already reported clipper capability; the implementation, default pattern families and control grammar are the independently reconstructed addition. No reviewed task proves activation.
+
+The Core contains 6,710 detected functions. This is not a claim that every compiler/runtime helper was semantically renamed. Research-relevant functional coverage is estimated at 85–90%; remaining small functions are predominantly runtime, STL/compiler, formatting, codec or local utilities. No unexplained large protocol-bearing branch remains.
 
 ## Carrier closure
 
 Static analysis of the signed host shows a direct imported call to `nvdaHelperRemote.dll!injection_initialize` at host RVA `0x1004`.
 
-The carrier's surrogate path is now identified as section-backed local-to-remote mapping and primary-thread-context redirection:
+Across retained Triage tasks, the carrier creates a fresh suspended 32-bit `SysWOW64\svchost.exe`, performs remote writes of a stable 417,792-byte call-over-data package and applies `SetThreadContext` to the target primary thread before execution continues. The package begins with a `CALL` that pushes the embedded Donut-instance address and transfers to terminal glue at record offset `0x627C5`.
 
-1. create a pagefile-backed section with `NtCreateSection`;
-2. map it into the carrier and suspended surrogate with `NtMapViewOfSection`;
-3. copy the payload into the local view with `RtlCopyMemory`;
-4. unmap the local view;
-5. on the x64-to-WOW64 path, set the primary thread's EIP to the remote base with `Wow64SetThreadContext`;
-6. resume the thread.
+That four-byte glue (`pop ecx; pop edx; push ecx; push edx`) recovers the instance pointer while preserving the caller return address. The following 11,647 bytes at offset `0x627C9` are an exact match for Donut `LOADER_EXE_X86` at commit `47758d787209dd1744f58c140102ac91b649df16`, SHA-256 `0C29CCCFF1B027D57C467564A333E9ADE455144649909A4B797B09B43002AC71`; 23 zero bytes follow. The whole 11,674-byte terminal region is therefore not itself the compared loader.
 
-The terminal 11,674-byte stub is byte-identical to the pinned official Donut v1.1 loader family. Its call-return-address `pop` supplies the embedded loader/config pointer. This attribution is stronger than the earlier automated family label and replaces the previous unresolved wording.
+The parsed Donut instance uses exit option 3, no entropy/encryption, original entry point 0, an embedded unmanaged executable, thread execution, no compression, and a 397,312-byte module matching executable A. Donut maps and starts A, which maps Launcher B. This independently closes the Donut attribution and call-return-address ABI.
+
+The supported injection classification is remote package placement into a newly created suspended surrogate followed by primary-thread execution hijacking (`T1055.003`). The evidence does not establish original-image unmapping/replacement, a remote thread, or Donut network staging. The carrier's exact static call site/API responsible for Triage's normalized remote-write events and the exact instruction-pointer value installed by `SetThreadContext` remain unresolved.
 
 ## Persistence-mode comparison
 
@@ -134,18 +232,35 @@ The direct-DLL analysis begins from `rundll32.exe …\nvdahelperremote.dll,#1`. 
 
 Accordingly, `NvSvc -> Tax_Notice_23665.exe` is the intended full-chain persistence path. `NvSvc -> rundll32.exe` is a direct-DLL sandbox artifact/execution mode, not evidence of a second PackClient family variant. The directory name alone is not sufficient detection: a genuine NVIDIA installation may use NVIDIA-branded ProgramData paths.
 
+## Historical network-indicator ledger
+
+These are time-sensitive pivots from the consulted public reporting and sandbox evidence, not family-unique or presumed-live indicators:
+
+| Indicator | Evidence class/context |
+|---|---|
+| `154[.]36[.]188[.]98:8080`, `206[.]238[.]196[.]96:6666`, `64[.]81[.]30[.]99` | Proofpoint/public campaign reporting |
+| `192[.]252[.]180[.]45:6666` | Deception.Pro later PackClient/HOK reporting |
+| `154[.]36[.]188[.]201:443` | July successful Launcher/Core sessions; August/September greeting-only retries |
+| `192[.]229[.]87[.]219:8383` and `:8027` | Public campaign reporting |
+| `gov12366[.]com`, `opkjhblll[.]cc` | Public campaign reporting |
+| `xzz[.]cam` | July sandbox DNS activity and Core plaintext |
+
+No detection recommendation here depends only on one infrastructure value.
+
 ## Detection and tooling consequences
 
 - **Proofpoint/ET:** static object-magic rules cover the visible handshake markers but are sensitive to TCP segmentation and do not validate the ordered PLH1/PLC1/PLA1/PLK1 stream state or the Launcher-to-Core phase change. A stream-aware stateful signature is a genuine coverage improvement; another raw magic rule is duplicative.
 - **Sigma #6280:** retain the high-confidence behavior join. Do not broaden it to generic `rundll32.exe` or the `NvSvc` directory alone; the observed direct-DLL persistence is a sandbox-induced nonfunctional replay. No recovered Core behavior requires a change to the submitted rule.
 - **Wireshark dissector:** the real filtered July capture validates the Launcher parser on an independently captured positive flow. A future revision should model the Launcher/Core phase boundary and the opposite type-`0x16` length endianness. This audit does not modify the open MR.
-- **YARA:** a Core rule based on multiple stable implementation anchors could be non-duplicative, but it requires a benign-corpus collision check before publication. A single export, PDB path, `PV10` string or plugin API name is too weak.
-- **Suricata:** new stateless rules for `PLH1`, `PLC1`, `PLA1`, `PLK1` or `PV10` would duplicate existing public coverage. The defensible new work is reassembly-aware ordering/state, with phase-aware Core handling.
+- **YARA:** a non-duplicative Core candidate requires PE structure plus all of `PackClientCore.dll`, `PackClientDll_Run`, and `PackClient_AllocStoredPluginImageW`, and at least three of `PackMonitorClient.PluginStore.v1`, `PackPlugin_GetFeatureId`, UTF-16 `PackPlugin.Registry.dll`, and `PackPlugin_BrowserMgr_TryHandleExtRemote`. It matched the raw Core and 352/352 mapped Core images while matching 0/86 mapped Launchers and 0/30 surrounding/non-PE allocations. This is strong within-case separation, not production validation; a representative benign and unrelated-malware corpus is still required.
+- **Suricata:** new stateless rules for `PLH1`, `PLC1`, `PLA1`, `PLK1` or `PV10` would duplicate existing public coverage. The defensible new work is reassembly-aware ordering/state, with phase-aware Core handling. Observed non-duplicative sequence candidates are startup probe/response, preview enable/request/ack plus type-18 response, and keylogger-offline telemetry. Static-only plugin/update grammars still need positive fixtures and prevalence testing.
 
 ## Remaining boundaries
 
 - No plugin binary was delivered or recovered.
+- No second Core build, deployed Core `auth_psk`, or encrypted-Core packet was recovered.
 - The external Launcher's `1RCP` peer and any bridge to Core `PV10` remain unidentified.
+- The carrier's exact static remote-write call site/API and the precise instruction-pointer value installed by `SetThreadContext` remain unresolved.
 - The C2/server implementation and challenge-generation code are not available.
 - The September server non-response does not reveal whether infrastructure was inactive, gated or deliberately suppressing application responses.
 - Representative benign-corpus measurements for proposed Core YARA and production false-positive rates for network/host rules have not been completed.
