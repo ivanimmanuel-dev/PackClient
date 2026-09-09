@@ -1,3 +1,4 @@
+"""Tests for PackClient outer framing and stream validation."""
 import struct
 import unittest
 
