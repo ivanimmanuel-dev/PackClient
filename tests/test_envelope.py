@@ -14,7 +14,8 @@ from tools.packclient_proto import (
 )
 
 
-"""Adjust the CBC IV so the NIST ciphertext decrypts to *block*."""
+# Derive an IV that turns the fixed NIST ciphertext into a protocol-shaped
+# block with valid PKCS#7 padding.
 AES_KEY = bytes.fromhex(
     "603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"
 )
@@ -52,7 +53,7 @@ def envelope(iv: bytes = IV, ciphertext: bytes = CIPHERTEXT, declared: int | Non
 
 
 def iv_for_plaintext_block(block: bytes) -> bytes:
-    """Adjust CBC IV so the fixed published NIST ciphertext yields *block*."""
+    """Adjust the CBC IV so the NIST ciphertext decrypts to *block*."""
     if len(block) != 16:
         raise ValueError("test block must be 16 bytes")
     return bytes(a ^ b ^ c for a, b, c in zip(NIST_PLAIN, NIST_IV, block))
