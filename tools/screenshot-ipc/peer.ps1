@@ -1,3 +1,6 @@
+<#
+Runs a local validation peer for the reconstructed 1RCP screenshot protocol.
+#>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
