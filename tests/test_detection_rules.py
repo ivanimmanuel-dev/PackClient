@@ -1,4 +1,4 @@
-"""Regression tests for the published Sigma, YARA, and Suricata rules."""
+"""Regression tests for the Sigma, YARA, and Suricata rules."""
 import importlib.util
 import json
 import os
