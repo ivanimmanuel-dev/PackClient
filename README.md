@@ -15,8 +15,6 @@ From Launcher to recovered Core: A technical teardown of PackClient’s PLK1 del
 
 ## Findings
 
-## Findings
-
 - Reconstruction of the worker-side `1RCP` interface: a 20-byte header, four message types, and top-down BGRX framebuffer data.
 - Recovered transport and authentication contracts: outer framing, the handshake, HMAC verification before AES-CBC decryption, and the PLK1 cache-validation path.
 - Recovered a 985,088-byte x86 `PackClientCore.dll` directly from historical PLK1 traffic.
@@ -60,17 +58,17 @@ flowchart TD
 
 | Topic | Reference |
 |---|---|
-| Host, carrier, package and recovered components | [Architecture](docs/architecture.md) |
+| Execution chain and recovered components | [Architecture](docs/architecture.md) |
 | `1RCP` screenshot protocol and framebuffer | [Screenshot IPC](docs/screenshot-ipc.md) |
-| Benign local peer/simulator | [Synthetic IPC validation](docs/screenshot-ipc-validation.md) |
-| Framing, handshake, encryption and PLK1 | [Protocol](docs/protocol-reference.md) |
-| Historical artifacts, recovered Core and plugin boundaries | [Core and artifact audit](docs/core-and-artifact-audit.md) |
-| Token selection and session drift | [Active-session Handoff](docs/active-session-handoff.md) |
-| Runtime memory, persistence and network observations | [Runtime](docs/runtime-validation.md) |
-| Artifact identities and claim boundaries | [Evidence](docs/evidence.md) |
-| Research limitations | [Limitations](docs/limitations.md) |
-| Passive decoders | [Tooling](docs/tooling.md) |
-| Detection candidates | [Detection Guide](docs/detection-guide.md) |
+| Benign local peer/simulator | [Synthetic IPC Validation](docs/screenshot-ipc-validation.md) |
+| Network framing, authentication and PLK1 | [Protocol](docs/protocol-reference.md) |
+| Core recovery and runtime behavior | [Core Analysis](docs/core-analysis.md) |
+| Windows session handoff | [Active-session Handoff](docs/active-session-handoff.md) |
+| Runtime memory, persistence and networking | [Runtime Analysis](docs/runtime-validation.md) |
+| Evidence, identities and scope | [Evidence](docs/evidence.md) |
+| Known gaps and limitations | [Limitations](docs/limitations.md) |
+| Passive protocol-analysis tools | [Tooling](docs/tooling.md) |
+| Detection engineering | [Detection Guide](docs/detection-guide.md) |
 
 ## Tools
 
@@ -94,13 +92,13 @@ The Sigma, Suricata and YARA rules are included as experimental detection candid
 
 ## Scope and Limitations
 
-The Core and historical successful Launcher-to-Core transport are now recovered. The available evidence still does not identify the external `1RCP` peer, contain a delivered plugin binary, prove a bridge between `1RCP` and Core `PV10`, recover the server implementation, establish a complete real `1RCP` exchange, or prove the causal diagnosis of the worker failure. The two September reruns reached the server but received no application response.
+The available evidence does not identify the external `1RCP` peer, contain a delivered plugin binary, prove a bridge between `1RCP` and Core `PV10`, recover the server implementation, establish a complete real `1RCP` exchange, or prove the causal diagnosis of the worker failure.
 
 Additional reproducibility gaps are documented in [Evidence](docs/evidence.md) and [Limitations](docs/limitations.md).
 
 ## Prior Work
 
-PackClient was previously documented by Proofpoint and Deception.Pro. This work adds implementation details from the recovered carrier, Launcher and Core build while separating prior reporting from independent reconstruction. See [Prior Work](docs/prior-work.md) for more details.
+PackClient was previously documented by Proofpoint and Deception.Pro. This work adds implementation details from the recovered carrier, Launcher and Core build. See [Prior Work](docs/prior-work.md) for more details.
 
 ## Citation
 
