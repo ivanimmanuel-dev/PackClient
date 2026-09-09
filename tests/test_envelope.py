@@ -1,3 +1,4 @@
+"""Tests for PackClient envelope authentication and AES-256-CBC handling."""
 import hashlib
 import hmac
 import struct
@@ -13,8 +14,7 @@ from tools.packclient_proto import (
 )
 
 
-# NIST SP 800-38A values; derive an IV so the ciphertext decrypts to the
-# protocol test plaintext with valid PKCS#7 padding.
+"""Adjust the CBC IV so the NIST ciphertext decrypts to *block*."""
 AES_KEY = bytes.fromhex(
     "603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"
 )
