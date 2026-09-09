@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PackClientLauncher transport, authentication, envelope, and PLK1 decoder."""
+"""PackClient Launcher transport, authentication, envelope, and PLK1 helpers."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ MAX_PLK1_SIZE = 0x08000000
 
 
 class ProtocolError(ValueError):
-    """A supplied stream violates the reconstructed protocol contract."""
+    """Raised when a stream violates the reconstructed protocol contract."""
 
     def __init__(self, message: str, *, offset: int | None = None):
         super().__init__(message)
@@ -104,7 +104,7 @@ def parse_outer_frame(data: bytes, offset: int = 0) -> tuple[OuterFrame, int]:
 
 
 def frame_bytes(message_type: int, payload: bytes) -> bytes:
-    """Build deterministic synthetic framing for tests."""
+    """Build an outer frame for synthetic tests."""
     body_length = 4 + len(payload)
     validate_body_length(body_length)
     return struct.pack("<II", FRAME_PREFIX | body_length, message_type) + payload
@@ -255,7 +255,7 @@ def parse_envelope(
     aes_key: bytes | None = None,
     hmac_key: bytes | None = None,
 ) -> EnvelopeResult:
-    """Parse, optionally authenticate, and optionally decrypt a type-0x16 envelope."""
+    """Parse and optionally verify a Launcher type-0x16 envelope."""
     _validate_32_byte_key("AES-256 key", aes_key)
     _validate_32_byte_key("envelope HMAC key", hmac_key)
     if len(envelope) < 0x35:
@@ -367,7 +367,7 @@ def _lz4_block_decode(data: bytes, expected_size: int) -> bytes:
         ) from exc
     try:
         decoded = block.decompress(data, uncompressed_size=expected_size)
-    except Exception as exc:  # dependency-specific decode exception types vary
+    except Exception as exc:  # lz4 versions expose different decode exceptions
         raise ProtocolError(f"PLK1 raw-block LZ4 decode failed: {exc}") from exc
     if len(decoded) != expected_size:
         raise ProtocolError(
@@ -462,7 +462,7 @@ class PLK1Reassembler:
 
 
 class StreamDecoder:
-    """Stateful decoder for one ordered transport byte stream."""
+    """Stateful decoder for one ordered Launcher transport stream."""
 
     def __init__(
         self,
@@ -593,7 +593,7 @@ class StreamDecoder:
             raise ProtocolError(f"{kind} is not valid in direction {self.direction}")
 
 
-# Dependency-free AES-256 decryption used by the envelope decoder.
+# Dependency-free AES-256 decryption for authenticated Launcher envelopes.
 _SBOX = (
     0x63,0x7C,0x77,0x7B,0xF2,0x6B,0x6F,0xC5,0x30,0x01,0x67,0x2B,0xFE,0xD7,0xAB,0x76,
     0xCA,0x82,0xC9,0x7D,0xFA,0x59,0x47,0xF0,0xAD,0xD4,0xA2,0xAF,0x9C,0xA4,0x72,0xC0,
