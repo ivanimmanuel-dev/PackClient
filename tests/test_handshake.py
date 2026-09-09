@@ -1,3 +1,4 @@
+"""Tests for PackClient handshake parsing and PLA1 authentication."""
 import hashlib
 import hmac
 import struct
