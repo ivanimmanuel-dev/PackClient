@@ -1,3 +1,4 @@
+"""Tests for PLK1 header validation, transfer reassembly, and LZ4 decoding."""
 import hashlib
 import importlib.util
 import struct
