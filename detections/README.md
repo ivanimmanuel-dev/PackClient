@@ -1,4 +1,4 @@
-# Detection content
+# Detection
 
 Detection and hunting rules derived from the PackClient Launcher behavior.
 
