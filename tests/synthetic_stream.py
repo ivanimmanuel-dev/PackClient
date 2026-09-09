@@ -1,4 +1,4 @@
-"""Chronological protocol-logic fixture; not a realistic directional stream."""
+"""Synthetic protocol fixture containing both directions in chronological order."""
 
 from __future__ import annotations
 
