@@ -92,12 +92,12 @@ def build_article():
     from datetime import date
     try: cutoff = date.fromisoformat(cutoff).strftime('%d %B %Y')
     except ValueError: pass
-    abstract = DATA.get('abstract', 'This report reconstructs one PackClientLauncher build: its local screenshot interface, transport and authentication, PLK1 delivery/cache path, and active-session handoff. Two separately collected runtime evidence sets link the reconstructed package to private process mappings and attempted connectivity. Core and the external screenshot peer remain unrecovered.')
-    status = DATA.get('status', 'PackClientLauncher code and runtime evidence')
+    abstract = DATA.get('abstract', 'This report reconstructs the PackClient Launcher and independently recovers its Core from historical PLK1 transfers while preserving the remaining plugin and screenshot-peer boundaries.')
+    status = DATA.get('status', 'PackClient Launcher, recovered Core and historical transport evidence')
     key_findings = DATA.get('key_findings', [
-        'The recovered <code>1RCP</code> worker uses a 20-byte header and a raw top-down BGRX framebuffer.',
-        'Authenticated receive and the PLK1 cache round trip define separate acceptance gates.',
-        'Runtime evidence establishes launcher residence and attempted connectivity; a completed C2 session is unproven.'
+        'Eight verified PLK1 transfers reconstruct one canonical <code>PackClientCore.dll</code>.',
+        'Historical captures preserve successful Launcher delivery and post-Core traffic.',
+        'Plugin binaries and the external <code>1RCP</code> peer remain unrecovered.'
     ])
     findings = ''.join(f'<li>{item}</li>' for item in key_findings)
     opening=f'''<header class="report-head" id="report"><p class="eyebrow">Malware analysis / reverse engineering</p><h1>{esc(TITLE)}</h1><p class="report-subtitle">{esc(SUBTITLE)}</p><p class="report-author">{esc(AUTHOR)}</p><dl class="report-meta"><div><dt>Published</dt> <dd><time datetime="{esc(DATA['date'])}">{published_date()}</time></dd></div> <div><dt>Research cutoff</dt> <dd>{esc(cutoff)} (UTC)</dd></div> <div class="research-status"><dt>Analysis scope</dt> <dd>{esc(status)}</dd></div></dl><div class="abstract"><h2>Abstract</h2>{md(abstract)}</div><div class="key-findings"><h2>Key findings</h2><ul>{findings}</ul></div></header>'''
@@ -107,7 +107,7 @@ def build_article():
 
 
 GROUPS=[
-('Recovered interfaces','The fields, state transitions and missing boundaries behind the article.', [('architecture','Architecture and artifact identity'),('screenshot-ipc','Screenshot IPC and framebuffer'),('protocol-reference','Transport, authentication and PLK1'),('active-session-handoff','Active-session handoff')]),
+('Recovered interfaces','The fields, state transitions and missing boundaries behind the article.', [('architecture','Architecture and artifact identity'),('core-and-artifact-audit','Recovered Core and public-artifact audit'),('screenshot-ipc','Screenshot IPC and framebuffer'),('protocol-reference','Transport, authentication and PLK1'),('active-session-handoff','Active-session handoff')]),
 ('Runtime and evidence','What the two runtime sets establish, with limits attached to each conclusion.', [('runtime-validation','Runtime validation'),('evidence','Evidence basis and identity anchors'),('limitations','Unresolved questions'),('prior-work','Prior work and contribution')]),
 ('Tools and reproducibility','Passive tools, optional local IPC tests and detection candidates with explicit validation limits.', [('tooling','Supported passive tools and quickstart'),('screenshot-ipc-validation','Synthetic screenshot IPC validation'),('detection-guide','Detection guide')])]
 

@@ -7,8 +7,8 @@ authors:
     given-names: Ivan Immanuel
 repository-code: "https://github.com/ivanimmanuel-dev/PackClient"
 url: "https://ivanimmanuel-dev.github.io/PackClient/"
-date-released: 2026-09-06
-version: 1.0.0
+date-released: 2026-09-09
+version: 1.1.0
 preferred-citation:
   type: report
   title: "PackClient: Reverse Engineering a Modular RAT Framework"

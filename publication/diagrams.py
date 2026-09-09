@@ -33,7 +33,7 @@ def base(h,kicker):
     return d
 
 def architecture():
-    d=base(520,'Recovered components and missing boundaries')
+    d=base(520,'Recovered Launcher, Core and missing external boundary')
     box(d,20,385,206,74,'Signed NVDA host','Tax_Notice_23665.exe',kind='neutral')
     box(d,275,385,207,74,'Sideloaded carrier','nvdaHelperRemote.dll',kind='neutral')
     arrow(d,[(226,422),(275,422)])
@@ -47,9 +47,9 @@ def architecture():
     arrow(d,[(378,275),(378,246),(125,246),(125,221)])
     arrow(d,[(378,275),(378,246),(360,246),(360,221)])
     arrow(d,[(378,275),(378,246),(595,246),(595,221)])
-    box(d,20,32,210,73,'Core-like PE','Bytes and hash not recovered',kind='gap')
+    box(d,20,32,210,73,'PackClientCore.dll','Recovered from 8 PLK1 transfers')
     box(d,490,32,210,73,'External endpoint peer','Creator and consumer missing',kind='gap')
-    arrow(d,[(125,149),(125,105)],'load contract',141,121,dashed=True,color=AMBER)
+    arrow(d,[(125,149),(125,105)],'verified delivery',141,121)
     arrow(d,[(595,149),(595,105)],'open existing',605,121,dashed=True,color=AMBER)
     label(d,255,65,'Solid: recovered code',10,MUTED)
     label(d,255,47,'Dashed: external boundary',10,AMBER)
@@ -140,7 +140,7 @@ def process_tree():
     return d
 
 DIAGRAMS={
- 'architecture':('The launcher explains four planes, with two external boundaries.',architecture),
+ 'architecture':('The carrier, launcher and recovered Core lead to one missing local screenshot-peer boundary.',architecture),
  'worker-state':('The recovered 1RCP worker opens, captures, announces, then reads commands.',worker_state),
  'worker-layout':('The 20-byte header and the raw BGRX payload have separate meanings.',worker_layout),
  'envelope':('A valid HMAC is a precondition for AES-CBC decryption.',envelope),

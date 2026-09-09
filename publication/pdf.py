@@ -554,7 +554,7 @@ def make_pdf():
         'authentication and delivery path, and correspondence with two runtime evidence sets. '
         'The recovered worker contract specifies a 20-byte header and raw top-down BGRX frames. '
         'Runtime evidence establishes launcher residence and attempted connectivity; '
-        'Core and the external screenshot peer remain unrecovered.')
+        'The Core is recovered from historical PLK1 transfers; plugin binaries and the external screenshot peer remain unrecovered.')
     story = [
         Spacer(1,71), Paragraph(esc(TITLE), cover_title),
         Paragraph('Reverse Engineering a<br/>Modular RAT Framework', cover_subtitle),

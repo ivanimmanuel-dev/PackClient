@@ -1,6 +1,6 @@
 # PackClient detection and hunting guide
 
-Research cut-off: 2026-09-05 (UTC)
+Research cut-off: 2026-09-09 (UTC)
 
 ## Detection strategy
 
@@ -13,6 +13,16 @@ The repository includes the following detection rules under [`detections/`](../d
 - Suricata rules for candidate PLH1/PLC1/PLA1 frame prefixes and version bytes.
 
 The included rules are experimental and should be validated against local telemetry and legitimate NVDA deployments.
+
+## September audit decisions
+
+| Candidate change | Decision | Reason |
+|---|---|---|
+| Broaden Sigma #6280 to generic `rundll32.exe` or the `NvSvc` directory | **Do not broaden** | The direct-DLL Triage task caused the carrier to copy/persist its sandbox host without the original DLL argument; that nonfunctional replay is an execution-context artifact, while NVIDIA-branded ProgramData paths can be legitimate |
+| Add more stateless Suricata rules for `PLH1`, `PLC1`, `PLA1`, `PLK1` or `PV10` | **Do not add duplicates** | Public/ET and repository rules already cover the visible markers; another magic match does not fix segmentation or phase ambiguity |
+| Add stream/transaction state | **High-value future work** | Historical captures validate the order `PLH1 -> PLC1 -> PLA1 -> PLK1`; reassembly-aware ordering is more discriminating and less packetization-sensitive |
+| Add Core YARA | **Hold for corpus testing** | The recovered Core supplies a stable constellation, but exports, PDB fragments or `PV10` alone are not sufficient and a benign-collision study is still missing |
+| Change the Wireshark MR | **Follow-up needed, not changed here** | The Launcher parser matches the positive July flow; Core reuses type `0x16` with the opposite ciphertext-length endianness, so decoding must be phase-aware |
 
 ## Correlated observations
 
@@ -143,7 +153,21 @@ The initial handshake is plaintext inside the verified outer frame. Exact stream
 
 The lengths encode `4-byte type + object size`. The Suricata rules additionally match little-endian version 1 and inspect reassembled TCP data at any buffer offset. In particular PLA1 follows PLH1 in the client stream; anchoring it with `startswith` can miss a coalesced buffer. These signatures match protocol prefixes rather than fully validating framing or HMAC state; TCP reassembly still matters.
 
-The [Proofpoint IOC table](https://www.proofpoint.com/us/blog/threat-insight/carry-compromise-ta4922-packs-packclient) lists `154.36.188[.]201` as post-infection infrastructure for July 15, without a port. The preserved process dump separately records effective configuration and a concrete attempt to that address on TCP/443, followed by `WSA=10060` (timeout).
+The [Proofpoint IOC table](https://www.proofpoint.com/us/blog/threat-insight/carry-compromise-ta4922-packs-packclient) lists `154.36.188[.]201` as post-infection infrastructure for July 15, without a port. The preserved process dump separately records a timed-out attempt to that address on TCP/443. Historical July Triage captures additionally establish successful raw PackClient framing on the same endpoint, including the ordered Launcher handshake, PLK1 Core delivery and post-Core application traffic. Port 443 must not be labelled TLS without TLS records.
+
+The filtered positive-flow PCAPNG validates the current Wireshark Lua dissector's Launcher-side recognition and PLK1 metadata on an independently captured stream. Its SHA-256 is `AB437D0EAE5E3C93764B89A3ECC5F6940D3CBEE0C2BE8D80D34CD7CB4CA38875`; it is a derivative of `260715-wd77daas7l/behavioral1`, not a separate collection.
+
+### Proofpoint Emerging Threats coverage audit
+
+The reviewed ET PackClient block, SIDs 2069878–2069890, covers representative greeting, challenge, authentication, PLK1, acknowledgement, basic Core status/heartbeat/information and `PV10`/JFIF objects. Several rules encode one observed packetization with `tcp-pkt` and exact `dsize` expectations. For example, SID 2069878 expects the four-byte frame word in a four-byte packet and SID 2069879 expects a 36-byte packet beginning with type `0x15` and `PLH1`; SIDs 2069880–2069883 make comparable split/size assumptions.
+
+Normal TCP can split, coalesce, retransmit or reorder those bytes. The rules match the source captures' packetization but can miss the same protocol objects under another segmentation pattern. The non-duplicative transport improvement is reassembled stream/frame state with ordered `PLH1 -> PLC1 -> PLA1 -> PLK1` validation and deliberate retry thresholding, not another content rule for the same magic.
+
+The reviewed rules do not semantically join higher-layer Core exchanges such as startup probe/response or preview enable/request/ack. Static `Q|PLUGIN|` staging and `Q|EXT|CLIENTCOREUPD|` are distinctive research surfaces, but no corresponding live transaction was captured; they should not become upstream raw-wire signatures without a positive fixture, phase/flow design and benign-prevalence testing. Core `auth_psk` can also wrap later messages in type `0x16`, defeating plaintext-only command matches.
+
+### Non-duplicative YARA boundary
+
+A reconstructed-Core candidate separated all 352 mapped Core records from 86 within-case non-Core records in the retained audit corpus. That is useful internal discrimination, not production validation. A publishable rule should combine several implementation anchors—rather than a single export, PDB suffix, plugin API or `PV10` literal—and must be checked against a broad benign corpus first. The main repository therefore records the candidate direction without presenting an unvalidated new rule as production-ready.
 
 ## Hash and filename IOCs
 
@@ -154,6 +178,8 @@ The [Proofpoint IOC table](https://www.proofpoint.com/us/blog/threat-insight/car
 | `Tax_Notice_23665.exe` | `93DD8B7B393289F88493596FAA4AE70054D9EB4FE47F2DD334F0C6BB5262F2A8` | Exact host identity |
 | `nvdaHelperRemote.dll` | `7295090C2CB63EBC43F932451971C41F9D015D2741E97AE3D9855F5AE87CFF94` | Exact carrier identity |
 | Embedded launcher B | `46B34789196733FAB62193F0AAEDB198B09F1362F9B10CA1DD70CF81D68B01AD` | Static reconstruction; derived bytes not published |
+| Reconstructed `PackClientCore.dll` | `4DE6EF8647FB4B599966A233740CB0514D1E71B8019A1A1792ED7E1E514EDF1C` | Eight identical historical PLK1 transfers |
+| Reconstructed Core `.text` | `F06FF7AB6D62B761344CAECBCC6857912F7543F43C0E5FF462D2174BADB0CA3F` | Exact match across 352 mapped Core images |
 
 Filename leads:
 
@@ -174,7 +200,7 @@ Names are mutable and should not be the only detection condition.
 | [T1053.005 — Scheduled Task/Job](https://attack.mitre.org/techniques/T1053/005/) | `NvSvc` at-logon persistence | Confirmed in runtime evidence |
 | [T1113 — Screen Capture](https://attack.mitre.org/techniques/T1113/) | GDI worker and BGRX response contract | Confirmed implementation; live frame not completed |
 | [T1134.002 — Create Process with Token](https://attack.mitre.org/techniques/T1134/002/) | Duplicated/retargeted token passed to `CreateProcessAsUserW` | Confirmed implementation |
-| [T1055 — Process Injection](https://attack.mitre.org/techniques/T1055/) | Malware-spawned surrogate contains unregistered A/B mappings and a thread starting at mapped A entry | **Strongly supported at parent-technique level; subtype unresolved** |
+| [T1055 — Process Injection](https://attack.mitre.org/techniques/T1055/) | Carrier creates a section, maps it locally and remotely, copies into the local view, redirects the suspended surrogate's primary thread and resumes it | Confirmed at parent-technique level; avoid over-specific hollowing terminology |
 
 ## Triage order
 
@@ -188,6 +214,8 @@ Names are mutable and should not be the only detection condition.
 ## Rule limitations
 
 - Suricata rules assume the listed prefix is contiguous in the normalized TCP stream; sensor configuration matters.
+- Existing object-magic coverage can miss split/coalesced sequences or lose the ordered state between Launcher and Core. Stream-aware state is the non-duplicative improvement.
+- Launcher and Core type `0x16` records use different ciphertext-length byte order; phase-blind parsing can misdecode Core traffic.
 - Sigma field names and command-line normalization vary by backend.
 - YARA marker rules identify a code/data constellation, not a campaign actor by themselves.
 - Sigma regex/backend semantics must be checked on the destination platform. The bare-svchost rule expects an absolute drive path; aliases, environment-variable paths, and missing parent telemetry are coverage limits.

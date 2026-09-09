@@ -5,7 +5,7 @@
 <p align="center"> <img width="257" height="222" alt="Tax_Notice_23665" src="https://github.com/user-attachments/assets/e8e1c36b-f4c8-49ac-86b4-f05237083478" /> 
 &nbsp;&nbsp;&nbsp; <img width="166" height="224" alt="nvdaHelperRemote" src="https://github.com/user-attachments/assets/675e5495-ff09-4227-9b39-66ebd2d16fd0" /> </p>
 
-Reconstruction of the launcher's `1RCP` screenshot-worker protocol, transport, authentication, PLK1 delivery/cache behavior, active-session handoff, and runtime evidence tied to the recovered build.
+Reconstruction of PackClient's launcher, PLK1 delivery, recovered Core, plugin-loading contracts, screenshot paths, persistence, and historical network behavior.
 
 <p align="center">
   <a href="https://ivanimmanuel-dev.github.io/PackClient/">Read the Publication</a>
@@ -17,8 +17,10 @@ Reconstruction of the launcher's `1RCP` screenshot-worker protocol, transport, a
 
 - Reconstruction of the worker-side `1RCP` interface: a 20-byte header, four message types, top-down BGRX framebuffer data, and an external endpoint peer.
 - Recovered transport and authentication contracts: outer framing, handshake, authenticated AES-CBC receive ordering, and the PLK1 cache acceptance path.
-- Runtime correspondence between the reconstructed launcher and private mappings, persistence, and attempted connectivity in evidence sets.
-- Three passive tool interfaces, a benign `1RCP` peer/simulator kit, synthetic tests, and experimental detection candidates.
+- Byte-exact recovery of a 985,088-byte x86 `PackClientCore.dll` from eight complete historical PLK1 transfers, with matching plaintext and mapped-`.text` identities.
+- Historical successful protocol progression through `PLH1 -> PLC1 -> PLA1 -> PLK1`, followed by bidirectional Core traffic and 15 `PV10` JPEG frames.
+- Static recovery of the carrier's section-backed remote mapping, the signed host's invoked carrier export, the Core's modern and legacy plugin-loading contracts, and its built-in `PV10` producer.
+- Runtime separation of the normal full-EXE persistence path from the direct-DLL `rundll32` sandbox artifact; no second PackClient variant was established.
 
 ## Recovered architecture
 
@@ -41,7 +43,9 @@ flowchart TD
     B --> S["Active-session Handoff"]
     B --> R["1RCP Screenshot Worker"]
 
-    K -. "core-like PE contract" .-> CORE["PackClientCore<br/>Unrecovered"]
+    K -->|"8 verified PLK1 transfers"| CORE["PackClientCore.dll<br/>985,088-byte x86 DLL"]
+    CORE --> PABI["Plugin ABI + legacy Main loader"]
+    CORE --> PV10["GDI/WIC PV10 JPEG producer"]
     R -. "pre-existing local endpoint" .-> PEER["External 1RCP Peer<br/>Unrecovered"]
 ```
 
@@ -53,6 +57,7 @@ flowchart TD
 | `1RCP` screenshot protocol and framebuffer | [Screenshot IPC](docs/screenshot-ipc.md) |
 | Benign local peer/simulator | [Synthetic IPC validation](docs/screenshot-ipc-validation.md) |
 | Framing, handshake, encryption and PLK1 | [Protocol](docs/protocol-reference.md) |
+| Historical artifacts, recovered Core and plugin boundaries | [Core and artifact audit](docs/core-and-artifact-audit.md) |
 | Token selection and session drift | [Active-session Handoff](docs/active-session-handoff.md) |
 | Runtime memory, persistence and network observations | [Runtime](docs/runtime-validation.md) |
 | Artifact identities and claim boundaries | [Evidence](docs/evidence.md) |
@@ -82,7 +87,7 @@ The Sigma, Suricata and YARA rules are included as experimental detection candid
 
 ## Scope and Limitations
 
-The available evidence does not establish a recovered Core, the external `1RCP` peer's identity, successful C2, a complete real `1RCP` exchange, the exact upstream injection subtype, envelope-key initialization, or the causal diagnosis of the worker failure.
+The Core and historical successful Launcher-to-Core transport are now recovered. The available evidence still does not identify the external `1RCP` peer, contain a delivered plugin binary, prove a bridge between `1RCP` and Core `PV10`, recover the server implementation, establish a complete real `1RCP` exchange, or prove the causal diagnosis of the worker failure. The two September reruns reached the server but received no application response.
 
 Additional reproducibility gaps are documented in [Evidence](docs/evidence.md) and [Limitations](docs/limitations.md).
 
@@ -94,6 +99,6 @@ PackClient was previously documented by Proofpoint. This work focuses on impleme
 
 Use [CITATION.cff](CITATION.cff) to cite the report. 
 
-Research cut-off: 5 September 2026. 
+Research cut-off: 9 September 2026.
 
-Publication date: 6 September 2026.
+Updated publication date: 9 September 2026.

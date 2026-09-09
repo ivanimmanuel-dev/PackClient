@@ -1,6 +1,6 @@
 # Runtime validation
 
-Two runtime sessions connect the static reconstruction to launcher residence, persistence and failed outbound behavior. The screenshot-worker experiments are documented separately in [screenshot IPC](screenshot-ipc.md). The PID 3696 session includes interrupted and manual launches, so its observations are treated as scoped events rather than one uninterrupted baseline.
+Two local runtime sessions connect the static reconstruction to launcher residence, persistence and failed outbound behavior. Historical public Triage sessions separately preserve successful delivery and Core traffic. The screenshot-worker experiments are documented separately in [screenshot IPC](screenshot-ipc.md). The PID 3696 session includes interrupted and manual launches, so its observations are treated as scoped events rather than one uninterrupted baseline.
 
 ## PID 5812
 
@@ -28,7 +28,7 @@ Raw B copies of `.data`, `.fptable`, `.rsrc` and `.reloc` match their correspond
 \BaseNamedObjects\PackClientLauncher.Session.9b2126fc5ed31443
 ```
 
-The package coordinates, PE metadata, section correspondence, A-entry thread, VMMap layout and named state provide converging evidence that the reconstructed A/B chain was resident and active. Static A contains B's local mapper. The upstream placement/injection mechanism remains unresolved.
+The package coordinates, PE metadata, section correspondence, A-entry thread, VMMap layout and named state provide converging evidence that the reconstructed A/B chain was resident and active. Static A contains B's local mapper. A later carrier closure pass identifies the upstream primitive as section-backed local-to-remote mapping followed by primary-thread-context redirection; the original local dump alone did not establish that mechanism.
 
 ### Configuration and connection attempt
 
@@ -36,7 +36,7 @@ The environment contains `PACK_LAUNCH_PULL_HOST=154[.]36[.]188[.]201` and `PACK_
 
 [Microsoft defines 10060 as WSAETIMEDOUT](https://learn.microsoft.com/en-us/windows/win32/winsock/windows-sockets-error-codes-2). This establishes an attempted connection and timeout, not TCP completion, authentication, PLK1 delivery, encrypted traffic, Core loading or successful C2.
 
-No independently identifiable Core PE was found in the dump. Core-related strings inside B describe its loading contract and do not establish a resident Core image.
+No independently identifiable Core PE was found in this dump. Core-related strings inside B describe its loading contract and do not establish a resident Core image at this capture time. The Core recovered from separate historical Triage artifacts must not be retroactively attributed to this dump.
 
 ### Procmon coverage
 
@@ -96,7 +96,13 @@ After normalizing 4,023 expected HIGHLOW relocations and 188 IAT slots, `.rsrc` 
 
 The package comparison contains three changed ranges totaling eight bytes. Three straightforward little-endian 6666-to-443 substitutions explain six of them; the remaining two cannot be resolved without the original per-site before/after bytes. Port 443 is independently observed in the runtime network evidence.
 
-No independently identifiable Core PE was found in this dump.
+No independently identifiable Core PE was found in this dump. Separate historical Triage artifacts recover Core independently.
+
+## Historical July and September Triage sessions
+
+The historical July reports `260715-wd77daas7l` and `260716-dhnz7aft6z` each contain four complete Launcher PLK1 transfers. Their packet streams progress through `PLH1 -> PLC1 -> PLA1 -> PLK1`, reconstruct the same 985,088-byte `PackClientCore.dll`, and continue into bidirectional Core traffic including 15 `PV10` JPEG frames. See [Core and public-artifact audit](core-and-artifact-audit.md) for the transfer arithmetic, hashes and plugin boundaries.
+
+The researcher-run September tasks answer a different question. In `260908-zwr5naybjb`, full-EXE execution persists `Tax_Notice_23665.exe`, while direct-DLL execution through `rundll32.exe …nvdahelperremote.dll,#1` causes the carrier to copy and persist the sandbox host as `rundll32.exe` without the DLL argument. The latter is a nonfunctional replay artifact of the direct-DLL invocation, not evidence of another PackClient variant. The one-hour `260909-abma8sab28` repeat reached the remote endpoint but received no application response; it records PLH1 retries without PLC1, PLK1, Core or plugin delivery.
 
 ## Reproducibility
 

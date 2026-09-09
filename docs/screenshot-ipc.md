@@ -73,7 +73,7 @@ The DIB header is 40 bytes, with positive width, negative height, planes 1, bit 
 
 IA-32 multiplication/shift calculates the allocation length; no separate overflow guard was observed.
 
-Within B the framebuffer dataflow ends at `WriteFile` on the supplied handle. No B-local edge reaches Winsock, PLK1, the lower encrypted transport, JPEG or `PV10`. Any forwarding or encoding stage therefore belongs to an unrecovered external component.
+Within B the framebuffer dataflow ends at `WriteFile` on the supplied handle. No B-local edge reaches Winsock, PLK1, the lower encrypted transport, JPEG or `PV10`. The separately recovered Core contains its own GDI/WIC `PV10` JPEG producer, but no recovered edge connects this raw-BGRX worker to that Core path. Any bridge still belongs to the unidentified external endpoint peer.
 
 ## DIB lifetime hazard and observed failure
 

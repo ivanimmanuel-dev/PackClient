@@ -155,6 +155,20 @@ TryLoad recomputes paths from the slot; it does not trust the metadata's `file`,
 
 Relevant B RVAs: pull `0x37AF`; transfer body `0x3A49`; header receive `0x3AB8`; initial TryLoad `0x3C46`; chunk receive `0x3DE1`; LZ4 boundary `0x3FAC`; plaintext hash verification `0x418C`; Save `0x4200 -> 0xD899`; reload `0x4263 -> 0xDCE3`; vector-to-PE handoff `0x4938 -> 0x10591 -> 0x10136`.
 
+## Historical positive-flow validation
+
+Triage runs `260715-wd77daas7l` and `260716-dhnz7aft6z` each preserve four complete PLK1 transfers. The sender-declared values are version 2, raw LZ4, transferred size 669,717, original size 985,088 and plaintext SHA-256 `4DE6EF8647FB4B599966A233740CB0514D1E71B8019A1A1792ED7E1E514EDF1C`.
+
+Each transfer uses eleven ordered type-`0x15` chunk records: sequences 0–9 carry 65,536 bytes and sequence 10 carries 14,357 bytes. Concatenation produces a 669,717-byte compressed derivative with SHA-256 `502A7D2D72BEFA9114417936A1B3C2DD8EC84FCD4AE9EF9A09FFF3604FC05CCE`; raw-LZ4 decompression produces the declared 985,088-byte Core and exact plaintext digest.
+
+The captures also validate the ordered plaintext handshake `PLH1 -> PLC1 -> PLA1 -> PLK1` and then carry bidirectional Core traffic. The filtered PCAPNG used to validate the Wireshark Lua dissector is a derivative of `260715-wd77daas7l/behavioral1`, 762,668 bytes, SHA-256 `AB437D0EAE5E3C93764B89A3ECC5F6940D3CBEE0C2BE8D80D34CD7CB4CA38875`.
+
+### Type-0x16 is phase-dependent
+
+The recovered Core has its own authenticated type-`0x16` format with a little-endian ciphertext length and key material derived from local `auth_psk` using PBKDF2-HMAC-SHA-256 (100,000 iterations; salt `PackClientCore.AppAuth`; 64 derived bytes split into AES/HMAC material). This differs from the Launcher's pre-Core type-`0x16` envelope above, whose ciphertext length is big-endian and whose key-state writer remains unresolved.
+
+Parsers must therefore select the type-`0x16` layout by Launcher/Core phase; the common outer type number is not a sufficient discriminator. Full Core behavior and validation boundaries are in the [Core and artifact audit](core-and-artifact-audit.md).
+
 ## Validation
 
-The [tooling reference](tooling.md) provides offline parsers and synthetic fixtures for the structures documented above. Runtime coverage and unresolved boundaries are summarized in [evidence](evidence.md) and [limitations](limitations.md).
+The [tooling reference](tooling.md) provides offline parsers and synthetic fixtures for the structures documented above. The historical capture now provides independent positive-flow validation for the Launcher dissector. Runtime coverage and unresolved boundaries are summarized in [evidence](evidence.md) and [limitations](limitations.md).

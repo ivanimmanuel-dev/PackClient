@@ -124,5 +124,59 @@
     "grade": "static",
     "source": "Ghidra decompilation of image B’s PLK1 acceptance and cache-return path.",
     "reference": "references/protocol-reference.html"
+  },
+  {
+    "id": "plk1-positive-flow",
+    "asset": "assets/figures/phase5a/01-wireshark-plk1-positive-flow.png",
+    "title": "An independently captured Launcher flow reaches PLK1.",
+    "caption": "Wireshark displays PLH1, PLC1, PLA1 and PLK1 on the filtered historical flow. The selected PLK1 header declares wire version 2, LZ4, 669,717 transferred bytes, 985,088 original bytes and the expected Core plaintext SHA-256.",
+    "grade": "runtime",
+    "source": "Wireshark with the repository Lua dissector on a filtered derivative of Triage 260715-wd77daas7l/behavioral1.",
+    "reference": "references/core-and-artifact-audit.html"
+  },
+  {
+    "id": "full-exe-persistence",
+    "asset": "assets/figures/phase5a/02-triage-full-exe-nvsvc-persistence.png",
+    "title": "Full-EXE execution persists the Tax Notice host.",
+    "caption": "The process view records NvSvc task creation with the ProgramData Tax_Notice_23665.exe action, matching the intended signed-host/carrier chain.",
+    "grade": "runtime",
+    "source": "Triage 260908-zwr5naybjb behavioral1 process report.",
+    "reference": "references/core-and-artifact-audit.html"
+  },
+  {
+    "id": "direct-dll-persistence",
+    "asset": "assets/figures/phase5a/03-triage-direct-dll-rundll32-persistence.png",
+    "title": "Direct-DLL execution persists a copied rundll32 host.",
+    "caption": "The direct rundll32 invocation causes NvSvc to target a copied rundll32.exe without the DLL argument. That action cannot replay the original entry point and is treated as a sandbox-context artifact, not a second variant.",
+    "grade": "runtime",
+    "source": "Triage 260908-zwr5naybjb behavioral2 process report.",
+    "reference": "references/core-and-artifact-audit.html"
+  },
+  {
+    "id": "carrier-entry",
+    "asset": "assets/figures/phase5a/05-ghidra-signed-host-injection-initialize.png",
+    "title": "The signed host calls the carrier initializer.",
+    "caption": "At host RVA 0x1004, the signed Tax Notice executable directly calls the imported nvdaHelperRemote.dll injection_initialize entry, closing the previously unresolved export-selection boundary.",
+    "grade": "static",
+    "source": "Ghidra disassembly and decompilation of Tax_Notice_23665.exe.",
+    "reference": "references/architecture.html"
+  },
+  {
+    "id": "core-plugin-abi",
+    "asset": "assets/figures/phase5a/08-ghidra-modern-plugin-abi-resolution.png",
+    "title": "Core resolves and validates the modern plugin ABI.",
+    "caption": "The recovered Core resolves PackPlugin_GetAbiVersion and PackPlugin_GetFeatureId before accepting feature-specific host bindings. A separate legacy path resolves Main.",
+    "grade": "static",
+    "source": "Ghidra decompilation of reconstructed PackClientCore.dll function 0x10016231.",
+    "reference": "references/core-and-artifact-audit.html"
+  },
+  {
+    "id": "core-pv10",
+    "asset": "assets/figures/phase5a/13-ghidra-pv10-serializer.png",
+    "title": "Core serializes its built-in preview as PV10.",
+    "caption": "The Core serializer emits the PV10 marker in the built-in screenshot-preview path. Packet reconstruction finds 15 matching type-18 JPEG frames; no bridge from the separate Launcher 1RCP endpoint is established.",
+    "grade": "static",
+    "source": "Ghidra disassembly and decompilation of reconstructed PackClientCore.dll RVA 0x236D0.",
+    "reference": "references/core-and-artifact-audit.html"
   }
 ]

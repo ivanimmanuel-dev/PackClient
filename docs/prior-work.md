@@ -1,6 +1,6 @@
 # Prior work and contribution
 
-Prior-art review cut-off: **5 September 2026 (UTC)**.
+Prior-art review cut-off: **9 September 2026 (UTC)**.
 
 ## Public reporting
 
@@ -12,11 +12,12 @@ The [MalwareBazaar campaign ZIP](https://bazaar.abuse.ch/sample/7108ff29916d0642
 
 | Contribution | Added detail | Evidence boundary |
 |---|---|---|
-| Launcher lower transport | Exact framing and type gates, fixed handshake fields, 42-byte HMAC transcript and authenticated CBC receive path | Recovered launcher build. No successful session captured. |
-| Delivery/cache | Exact PLK1 sizes, sequence checks, optional raw LZ4, plaintext SHA-256 verification, cache-hit/fresh selection and required save/reload cycle | Core bytes were not recovered. Both active pull callers use slot 0. |
+| Launcher lower transport | Exact framing and type gates, fixed handshake fields, 42-byte HMAC transcript and authenticated CBC receive path | Recovered launcher build, now checked against successful historical captures. |
+| Delivery/cache | Exact PLK1 sizes, sequence checks, optional raw LZ4, plaintext SHA-256 verification, cache-hit/fresh selection and required save/reload cycle | Eight transfers reconstruct the same Core; both active pull callers use slot 0. |
+| Recovered Core | Byte-exact 985,088-byte DLL, exports, major subsystems, plugin ABI/legacy paths and built-in PV10 producer | No plugin binary or second Core build recovered. |
 | Local screenshot IPC | Exact five-DWORD `1RCP` worker contract, BGRX layout, endpoint roles and process context | Worker half reconstructed. External peer and complete real exchange unrecovered. |
 | Active-session continuity | Target selection, launch/environment token roles, bootstrap and argument semantics, spawn retries and drift replacement | Static contract. Successful runtime handoff was not observed. |
-| Runtime corroboration | Memory and process evidence linking the transformed package, mapped A/B, A-entry thread, persistence and failed outbound attempts | Upstream placement/injection mechanism, Core and successful C2 remain unresolved. |
-| Defensive tooling | Passive parsers, metadata dissector, detections and synthetic regression tests | Mechanics tested. Real-capture compatibility and production accuracy remain unmeasured. |
+| Runtime corroboration | Memory/process evidence linking the package, A/B, persistence and local failed attempts, plus historical sandbox evidence of successful delivery | September reruns remained nonresponsive; no plugin delivery observed. |
+| Defensive tooling | Passive parsers, metadata dissector, detections, synthetic regression tests and a real positive Launcher-flow check | Core phase handling and production accuracy remain unmeasured. |
 
 Searches through the cut-off found no indexed detailed treatment of the recovered `1RCP` worker contract, `scr_cap_worker`, or the launcher's PLK1/HMAC behavior. These areas are therefore described here as **previously underdocumented**.
