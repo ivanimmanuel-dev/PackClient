@@ -15,13 +15,15 @@ From Launcher to recovered Core: A technical teardown of PackClient’s PLK1 del
 
 ## Findings
 
-- Reconstruction of the worker-side `1RCP` interface: a 20-byte header, four message types, top-down BGRX framebuffer data, and an external endpoint peer.
-- Recovered transport and authentication contracts: outer framing, handshake, authenticated AES-CBC receive ordering, and the PLK1 cache acceptance path.
-- Byte-exact recovery of a 985,088-byte x86 `PackClientCore.dll` from eight complete historical PLK1 transfers, with matching plaintext and mapped-`.text` identities.
+## Findings
+
+- Reconstruction of the worker-side `1RCP` interface: a 20-byte header, four message types, and top-down BGRX framebuffer data.
+- Recovered transport and authentication contracts: outer framing, the handshake, HMAC verification before AES-CBC decryption, and the PLK1 cache-validation path.
+- Recovered a 985,088-byte x86 `PackClientCore.dll` directly from historical PLK1 traffic.
 - Historical successful protocol progression through `PLH1 -> PLC1 -> PLA1 -> PLK1`, followed by bidirectional Core traffic and 15 `PV10` JPEG frames.
-- Independent recovery of the signed host's invoked carrier export, the injected Donut package and terminal-loader ABI, the Core's modern and legacy plugin-loading contracts, and its built-in `PV10` producer.
-- Core closure includes all exports, the Launcher ABI, six local configuration keys, phase-specific application encryption, staged plugin/update storage, ETCHOOK clipboard replacement, and the major command/subsystem census.
-- Runtime separation of the normal full-EXE persistence path from the direct-DLL `rundll32` sandbox artifact; no second PackClient variant was established.
+- Recovery of the signed host’s invoked carrier export, the injected Donut package and terminal-loader ABI, the Core’s modern and legacy plugin-loading contracts, and its built-in `PV10` producer.
+- Mapped all 11 Core exports, the Launcher-to-Core ABI, six local settings, the Core-specific type-`0x16` encryption layer, staged plugin delivery and cache logic, DPAPI-protected Core-update storage, ETCHOOK clipboard replacement, and the main command handlers.
+- Runtime separation of two persistence paths: normal full-EXE execution persists `Tax_Notice_23665.exe`, while direct-DLL execution produces a broken `rundll32.exe` task without the original DLL argument.
 
 ## Recovered architecture
 
@@ -29,8 +31,8 @@ From Launcher to recovered Core: A technical teardown of PackClient’s PLK1 del
 flowchart TD
     H["Signed NVDA Host<br/>Tax_Notice_23665.exe"]
     C["Carrier DLL<br/>nvdaHelperRemote.dll"]
-    V["Suspended 32-bit surrogate<br/>SysWOW64\\svchost.exe"]
-    D["Injected Donut package<br/>exact x86 loader + embedded A"]
+    V["Suspended 32-bit Surrogate<br/>SysWOW64\\svchost.exe"]
+    D["Injected Donut Package<br/>exact x86 loader + embedded A"]
 
     subgraph P[" "]
         A["Executable A<br/>Wrapper / Mapper"]
@@ -49,9 +51,9 @@ flowchart TD
     B --> R["1RCP Screenshot Worker"]
 
     K -->|"8 verified PLK1 transfers"| CORE["PackClientCore.dll<br/>985,088-byte x86 DLL"]
-    CORE --> PABI["Plugin ABI + legacy Main loader"]
-    CORE --> PV10["GDI/WIC PV10 JPEG producer"]
-    R -. "pre-existing local endpoint" .-> PEER["External 1RCP Peer<br/>Unrecovered"]
+    CORE --> PABI["Plugin ABI + Legacy Main Loader"]
+    CORE --> PV10["GDI/WIC PV10 JPEG Producer"]
+    R -. "pre-existing local endpoint" .-> PEER["External 1RCP Peer<br/>(Unrecovered)"]
 ```
 
 ## References
