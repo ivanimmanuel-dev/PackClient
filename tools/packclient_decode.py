@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Decode a raw PackClientLauncher byte stream."""
+"""Passively decode a raw PackClient Launcher byte stream."""
 
 from __future__ import annotations
 
