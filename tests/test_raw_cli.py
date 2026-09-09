@@ -1,3 +1,4 @@
+"""Tests for the raw-stream CLI, including failure handling and secret redaction."""
 import json
 from pathlib import Path
 import subprocess
