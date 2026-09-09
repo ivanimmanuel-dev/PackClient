@@ -1,6 +1,6 @@
 # Detection
 
-Detection and hunting rules derived from the PackClient Launcher behavior.
+Detection and hunting rules derived from the observed PackClient execution chain and recovered Launcher.
 
 | Path | Purpose |
 |---|---|
