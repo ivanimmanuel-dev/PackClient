@@ -1,3 +1,4 @@
+"""Tests for capture selection and diagnostic-flow handling."""
 import unittest
 
 from tools.packclient_pcap import analyze_capture, format_timeline
