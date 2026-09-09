@@ -4,7 +4,7 @@ Two local runtime sessions connect the static reconstruction to launcher residen
 
 ## PID 5812
 
-The process tree records staged host PID 10164, intermediate descendant 9068 and bare 32-bit `SysWOW64\svchost.exe` PID 5812, followed by task activity. Its command line lacks the normal service-host group/selection arguments, supporting a malware-spawned surrogate. The mechanism that placed and started PackClient code inside it remains unresolved.
+The process tree records staged host PID 10164, intermediate descendant 9068 and bare 32-bit `SysWOW64\svchost.exe` PID 5812, followed by task activity. Its command line lacks the normal service-host group/selection arguments, supporting a malware-spawned surrogate. This original PID 5812 evidence set does not independently reveal how PackClient code was placed and started inside it; later Triage telemetry establishes remote package writes and primary-thread context hijacking while leaving the exact carrier write call site/API and installed instruction-pointer value unresolved.
 
 Task `\NvSvc` uses a logon trigger, `InteractiveToken`, `HighestAvailable`, and target `C:\ProgramData\NVIDIA Corporation\NvSvc\Tax_Notice_23665.exe` under the current user's principal. The older LastWrite values visible in this session do not by themselves establish backdating; the PID 3696 trace below records the writes directly.
 

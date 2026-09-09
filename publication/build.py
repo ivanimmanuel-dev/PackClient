@@ -103,7 +103,7 @@ def build_article():
     opening=f'''<header class="report-head" id="report"><p class="eyebrow">Malware analysis / reverse engineering</p><h1>{esc(TITLE)}</h1><p class="report-subtitle">{esc(SUBTITLE)}</p><p class="report-author">{esc(AUTHOR)}</p><dl class="report-meta"><div><dt>Published</dt> <dd><time datetime="{esc(DATA['date'])}">{published_date()}</time></dd></div> <div><dt>Research cutoff</dt> <dd>{esc(cutoff)} (UTC)</dd></div> <div class="research-status"><dt>Analysis scope</dt> <dd>{esc(status)}</dd></div></dl><div class="abstract"><h2>Abstract</h2>{md(abstract)}</div><div class="key-findings"><h2>Key findings</h2><ul>{findings}</ul></div></header>'''
     navigation=f'<ol>{toc}</ol>'
     body=f'''<main id="main" tabindex="-1"><details class="mobile-toc"><summary>In this report</summary><nav aria-label="Mobile report contents">{navigation}</nav></details><div class="reading-layout"><aside class="contents"><a class="contents-title" href="#report">In this report</a><nav aria-label="Report contents">{navigation}</nav><div class="contents-extra"><a href="evidence.html#identities">Artifact identities</a><a href="references.html">Technical references</a><a href="{PDF_FILE}">Download PDF ↗</a></div></aside><article class="prose">{opening}{''.join(chapters)}<section class="report-resources" aria-labelledby="resources-heading"><h2 id="resources-heading">Technical references and evidence</h2><p><a href="references.html">Field-level references</a> contain the complete contracts, runtime correspondence and tooling documentation. The <a href="evidence.html">evidence index</a> records the source tools and identity anchors for the selected figures.</p></section></article></div></main>'''
-    (DIST/'index.html').write_text(shell(REPORT_TITLE,body,description=abstract))
+    (DIST/'index.html').write_text(shell(REPORT_TITLE,body,description=abstract), encoding='utf-8')
 
 
 GROUPS=[
@@ -115,8 +115,9 @@ GROUPS=[
 def build_references():
     out=DIST/'references';out.mkdir(parents=True,exist_ok=True)
     for p in sorted((ROOT/'docs').glob('*.md')):
-        title=re.search(r'^#\s+(.+)$',p.read_text(),re.M).group(1).replace('`','')
-        content=md(p.read_text())
+        source=p.read_text(encoding='utf-8')
+        title=re.search(r'^#\s+(.+)$',source,re.M).group(1).replace('`','')
+        content=md(source)
         def rewrite(m):
             attr,url=m.group(1),html.unescape(m.group(2)); parts=urlsplit(url)
             if parts.scheme or parts.netloc or url.startswith('#'): return m.group(0)
@@ -129,14 +130,14 @@ def build_references():
             return f'{attr}="{esc(new)}"'
         content=re.sub(r'(href|src)="([^"]+)"',rewrite,content)
         body=f'<main id="main" class="source-page" tabindex="-1"><div class="source-bar"><a href="../references.html">← Technical references</a><a href="{REPO}/blob/main/docs/{p.name}">View Markdown ↗</a></div><article class="prose source-prose">{content}</article></main>'
-        (out/(p.stem+'.html')).write_text(shell(title,body,'../',kind='references',description=f'{title}. {SUBTITLE}.',page=f'references/{p.stem}.html'))
+        (out/(p.stem+'.html')).write_text(shell(title,body,'../',kind='references',description=f'{title}. {SUBTITLE}.',page=f'references/{p.stem}.html'), encoding='utf-8')
     groups=[]
     for title,desc,items in GROUPS:
         links=''.join(f'<li><a href="references/{slug}.html"><span>{esc(label)}</span> <span>↗</span></a></li>' for slug,label in items)
         groups.append(f'<section class="resource-group"><div><h2>{title}</h2><p>{desc}</p></div><ul>{links}</ul></section>')
     citation=f'<section class="resource-group" id="citation"><div><h2>Citation</h2><p>Version {esc(VERSION)} · {published_date()}</p></div><div><p>{esc(AUTHOR)}. ({DATA["date"][:4]}). <cite>{esc(REPORT_TITLE)}</cite> (Version {esc(VERSION)}). <a href="{SITE}/">{SITE}/</a></p><p><a href="CITATION.cff" download>Download CITATION.cff</a></p></div></section>'
     body=f'<main id="main" tabindex="-1"><div class="page-hero"><p class="eyebrow">Field-level detail</p><h1>Technical references</h1><p>Recovered contracts, runtime correspondence and supported inspection tools.</p></div><div class="companion-body">{"".join(groups)}{citation}</div></main>'
-    (DIST/'references.html').write_text(shell('Technical references',body,kind='references',description='PackClient technical references: recovered interfaces, runtime evidence, tools, detections and report citation.',page='references.html'))
+    (DIST/'references.html').write_text(shell('Technical references',body,kind='references',description='PackClient technical references: recovered interfaces, runtime evidence, tools, detections and report citation.',page='references.html'), encoding='utf-8')
 
 
 def build_evidence():
@@ -147,7 +148,7 @@ def build_evidence():
         f=FM[fid]
         entries.append(f'''<section class="ledger-entry" id="{fid}"><a class="ledger-thumb zoom-figure" href="{f['asset_url']}" data-title="{esc(f['title'])}" data-caption="{esc(f['caption'])}" aria-label="Enlarge figure {n}: {esc(f['title'])}"><img loading="lazy" decoding="async" width="{f['width']}" height="{f['height']}" src="{f['asset_url']}" alt="{esc(f['title'])}"></a><div><p class="eyebrow">Figure {n:02d} / {esc(grade_label(f['grade']))}</p> <h3>{esc(f['title'])}</h3> <p>{esc(f['caption'])}</p><p><strong>Source:</strong> {esc(f['source'])}</p><p><a href="{f['reference']}">Technical analysis ↗</a> · <a href="index.html#fig-{fid}">Read in the report ↗</a></p></div></section>''')
     body=f'''<main id="main" tabindex="-1"><div class="page-hero"><p class="eyebrow">Evidence and analysis</p><h1>Evidence index</h1><p>Selected screenshots, their source tools and the findings they support.</p></div><div class="evidence-body"><section class="prose" id="identities"><h2>Identity anchors</h2><p>Recorded hashes identify the studied malware and runtime dumps. Those artifacts are not redistributed.</p><div class="table-scroll" role="region" aria-label="Artifact hashes" tabindex="0"><table class="identity-table"><thead><tr><th>Artifact</th><th>SHA-256</th></tr></thead><tbody>{rows}</tbody></table></div><p><a href="references/evidence.html">Evidence basis and limits</a></p></section><section class="prose" id="figures"><h2>Selected figures</h2><p>Cropped source screenshots use editorial callouts to identify the relevant regions. Captions identify the observation; the linked technical references explain its interpretation. Diagrams are labelled as reconstructions.</p></section>{''.join(entries)}</div></main>'''
-    (DIST/'evidence.html').write_text(shell('Evidence and analysis',body,kind='evidence',description='Sample identities, source screenshots and the observations they support in the PackClient research.',page='evidence.html'))
+    (DIST/'evidence.html').write_text(shell('Evidence and analysis',body,kind='evidence',description='Sample identities, source screenshots and the observations they support in the PackClient research.',page='evidence.html'), encoding='utf-8')
 
 
 def build():
@@ -159,15 +160,15 @@ def build():
     shutil.copytree(ROOT/'assets/figures', DIST/'assets/figures', dirs_exist_ok=True)
     shutil.copy2(ROOT/SOCIAL_IMAGE, DIST/SOCIAL_IMAGE)
     shutil.copy2(ROOT/'CITATION.cff', DIST/'CITATION.cff')
-    (DIST/'assets/favicon.svg').write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#10161e"/><path d="M20 18h17a10 10 0 0 1 0 20H26v12h-6zm6 6v8h10a4 4 0 0 0 0-8z" fill="#6bd0c5"/></svg>')
+    (DIST/'assets/favicon.svg').write_text('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#10161e"/><path d="M20 18h17a10 10 0 0 1 0 20H26v12h-6zm6 6v8h10a4 4 0 0 0 0-8z" fill="#6bd0c5"/></svg>', encoding='utf-8')
     diagrams=DIST/'assets/diagrams';diagrams.mkdir(exist_ok=True)
     for key,(_,fn) in DIAGRAMS.items():
         target = diagrams / (key + '.svg')
         renderSVG.drawToFile(fn(), str(target))
         # PDF font names are not portable CSS font families.
-        svg = target.read_text().replace('font-family: Helvetica-Bold;', 'font-family: Arial, Helvetica, sans-serif; font-weight: 700;')
+        svg = target.read_text(encoding='utf-8').replace('font-family: Helvetica-Bold;', 'font-family: Arial, Helvetica, sans-serif; font-weight: 700;')
         svg = svg.replace('font-family: Helvetica;', 'font-family: Arial, Helvetica, sans-serif;')
-        target.write_text(svg)
+        target.write_text(svg, encoding='utf-8')
     shutil.copy2(ROOT/'publication/site.css',DIST/STYLE_FILE)
     shutil.copy2(ROOT/'publication/site.js',DIST/SCRIPT_FILE)
     (DIST/'.nojekyll').touch()

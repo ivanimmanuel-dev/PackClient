@@ -96,7 +96,7 @@ Both Python CLIs accept `--psk-text`, `--psk-hex`, `--use-default-psk`, `--aes-k
 | Envelope HMAC key | Type-`0x16` authentication |
 | AES key and envelope HMAC key | Authentication before AES-256-CBC decryption, strict padding and inner type `0x15` |
 
-The fallback `pack-launch-dev-psk` is used only with `--use-default-psk`. No environment variable is read implicitly, and no envelope key is derived from the handshake PSK. Envelope-key initialization remains unresolved, so envelope keys must be supplied independently. AES decryption is attempted only after HMAC verification succeeds.
+The fallback `pack-launch-dev-psk` is used only with `--use-default-psk`. No environment variable is read implicitly, and no Launcher envelope key is derived from the handshake PSK. Launcher envelope-key initialization remains unresolved, so those keys must be supplied independently. Core's separate `auth_psk` derivation is documented in the protocol reference. AES decryption is attempted only after HMAC verification succeeds.
 
 PLK1 verification requires a valid 56-byte header, supported version, zero-based chunk sequence, exact sizes and a matching final SHA-256. Effective sizes are bounded at 128 MiB. Version 2 raw-block LZ4 output is unverifiable when the optional dependency is unavailable or decoding is disabled. The CLIs do not write recovered payloads to disk.
 

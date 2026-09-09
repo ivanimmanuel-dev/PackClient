@@ -1,9 +1,10 @@
-title: PackClient NvSvc Logon Task Creation
+title: PackClient NvSvc Scheduled Task Creation
 id: 148e6a44-1d6c-4d3b-9518-6c64d88e3792
 status: experimental
-description: Detects the task name and installed path observed in the documented PackClient chain.
+description: Detects creation of the NvSvc logon task and ProgramData target observed in the PackClient infection chain.
 references:
   - https://www.proofpoint.com/us/blog/threat-insight/carry-compromise-ta4922-packs-packclient
+  - https://github.com/SigmaHQ/sigma/pull/6280
 author: Ivan Immanuel Shaji
 date: 2026-09-05
 tags:
@@ -13,19 +14,21 @@ logsource:
   category: process_creation
   product: windows
 detection:
-  selection_image:
-    Image|endswith: '\schtasks.exe'
+  selection_img:
+    - Image|endswith: '\schtasks.exe'
+    - OriginalFileName: 'schtasks.exe'
   selection_task:
+    CommandLine|re|i: '(?:^|\s)/TN\s+(?:"\\?NvSvc"|\\?NvSvc)(?:\s|$)'
+  selection_cli:
     CommandLine|contains|all:
       - '/Create'
-      - '/TN'
-      - 'NvSvc'
+      - '/TR'
       - '/SC'
       - 'ONLOGON'
-      - 'Tax_Notice_23665.exe'
-  selection_path:
-    CommandLine|contains: '\ProgramData\NVIDIA Corporation\NvSvc\'
+      - '/RL'
+      - 'HIGHEST'
+      - '\ProgramData\NVIDIA Corporation\NvSvc\Tax_Notice_23665.exe'
   condition: all of selection_*
 falsepositives:
-  - A locally deployed task that intentionally reuses the exact name and path; verify target hash and signer.
+  - A locally deployed task that intentionally reuses the exact task name and target path; verify target hash and signer.
 level: high

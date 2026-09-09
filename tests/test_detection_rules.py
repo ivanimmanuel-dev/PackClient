@@ -53,6 +53,7 @@ class SigmaRuleTests(unittest.TestCase):
         base = {"Image": r"C:\Temp\renamed.exe"}
         for command, expected in [
             (r'renamed.exe /scr_cap_worker \\.\pipe\synthetic', True),
+            (r'renamed.exe "/scr_cap_worker" \\.\pipe\synthetic', True),
             ('renamed.exe /scr_cap_worker_extra value', False),
             ('renamed.exe --active-session', False),
             ('renamed.exe -acsi', False),
@@ -92,7 +93,9 @@ class SigmaRuleTests(unittest.TestCase):
         command = r'schtasks /Create /TN NvSvc /TR "C:\ProgramData\NVIDIA Corporation\NvSvc\Tax_Notice_23665.exe" /SC ONLOGON /RL HIGHEST /F'
         base = {"Image": r"C:\Windows\System32\schtasks.exe"}
         self.assertTrue(self.matches(rule, {**base, "CommandLine": command}))
-        for changed in [command.replace('/Create', '/Query'), command.replace('ONLOGON', 'DAILY'),
+        for changed in [command.replace('/Create', '/Query'), command.replace('/TR', '/XX'),
+                        command.replace('ONLOGON', 'DAILY'), command.replace('/RL HIGHEST', ''),
+                        command.replace('/TN NvSvc', '/TN OtherSvc'),
                         command.replace('NVIDIA Corporation', 'Other Corporation')]:
             self.assertFalse(self.matches(rule, {**base, "CommandLine": changed}))
 

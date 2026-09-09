@@ -128,10 +128,10 @@
   {
     "id": "plk1-positive-flow",
     "asset": "assets/figures/phase5a/01-wireshark-plk1-positive-flow.png",
-    "title": "An independently captured Launcher flow reaches PLK1.",
+    "title": "A historical Triage Launcher flow reaches PLK1.",
     "caption": "Wireshark displays PLH1, PLC1, PLA1 and PLK1 on the filtered historical flow. The selected PLK1 header declares wire version 2, LZ4, 669,717 transferred bytes, 985,088 original bytes and the expected Core plaintext SHA-256.",
     "grade": "runtime",
-    "source": "Wireshark with the repository Lua dissector on a filtered derivative of Triage 260715-wd77daas7l/behavioral1.",
+    "source": "Wireshark with the repository Lua dissector on a 1,033-packet flow-filtered derivative of Triage 260715-wd77daas7l/behavioral1; this is not a separate collection or an upstream-C-MR build test.",
     "reference": "references/core-and-artifact-audit.html"
   },
   {

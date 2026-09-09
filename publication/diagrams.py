@@ -33,20 +33,22 @@ def base(h,kicker):
     return d
 
 def architecture():
-    d=base(520,'Recovered Launcher, Core and missing external boundary')
-    box(d,20,385,206,74,'Signed NVDA host','Tax_Notice_23665.exe',kind='neutral')
-    box(d,275,385,207,74,'Sideloaded carrier','nvdaHelperRemote.dll',kind='neutral')
-    arrow(d,[(226,422),(275,422)])
-    label(d,250.5,451,'bare',10.5,MUTED,anchor='middle')
-    label(d,250.5,436,'import',10.5,MUTED,anchor='middle')
-    box(d,275,275,207, 74,'Transformed A/B package','A maps B in-process\nB: PackClientLauncher')
-    arrow(d,[(378,385),(378,349)],'reconstructed bytes',393,365)
+    d=base(620,'Recovered carrier, surrogate, Launcher and Core')
+    box(d,20,490,206,74,'Signed NVDA host','Tax_Notice_23665.exe',kind='neutral')
+    box(d,275,490,207,74,'Sideloaded carrier','injection_initialize',kind='neutral')
+    arrow(d,[(226,527),(275,527)])
+    label(d,250.5,556,'bare',10.5,MUTED,anchor='middle')
+    label(d,250.5,541,'import',10.5,MUTED,anchor='middle')
+    box(d,275,390,207,74,'Suspended surrogate','SysWOW64\\svchost.exe\nremote placement + context hijack')
+    arrow(d,[(378,490),(378,464)])
+    box(d,275,290,207,74,'Donut package -> A -> B','exact x86 loader\nB: PackClientLauncher')
+    arrow(d,[(378,390),(378,364)],'call-over-data entry',393,376)
     box(d,20,149,210,72,'Transport + PLK1','Frames, auth, delivery, cache')
     box(d,255,149,210,72,'Active-session launch','Primary token + relaunch')
     box(d,490,149,210,72,'1RCP worker','Capture + endpoint writes')
-    arrow(d,[(378,275),(378,246),(125,246),(125,221)])
-    arrow(d,[(378,275),(378,246),(360,246),(360,221)])
-    arrow(d,[(378,275),(378,246),(595,246),(595,221)])
+    arrow(d,[(378,290),(378,246),(125,246),(125,221)])
+    arrow(d,[(378,290),(378,246),(360,246),(360,221)])
+    arrow(d,[(378,290),(378,246),(595,246),(595,221)])
     box(d,20,32,210,73,'PackClientCore.dll','Recovered from 8 PLK1 transfers')
     box(d,490,32,210,73,'External endpoint peer','Creator and consumer missing',kind='gap')
     arrow(d,[(125,149),(125,105)],'verified delivery',141,121)
@@ -140,7 +142,7 @@ def process_tree():
     return d
 
 DIAGRAMS={
- 'architecture':('The carrier, launcher and recovered Core lead to one missing local screenshot-peer boundary.',architecture),
+ 'architecture':('The signed host loads the carrier, which populates a suspended surrogate with the Donut/A/B chain before Launcher delivery of Core.',architecture),
  'worker-state':('The recovered 1RCP worker opens, captures, announces, then reads commands.',worker_state),
  'worker-layout':('The 20-byte header and the raw BGRX payload have separate meanings.',worker_layout),
  'envelope':('A valid HMAC is a precondition for AES-CBC decryption.',envelope),

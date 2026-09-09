@@ -24,8 +24,8 @@ Static claims are based on the identity-pinned reconstruction. Runtime claims ar
 | Carrier placement/start behavior | Direct sandbox events plus static thread-context control flow | Remote package writes and primary-thread context hijacking; exact carrier write API/call site and installed instruction pointer remain unresolved |
 | Lower framing and PLH1/PLC1/PLA1 layouts | Direct static contract, synthetic verification and historical positive captures | Successful historical flow in the July Triage reports. See [protocol reference](protocol-reference.md). |
 | PLA1 HMAC-SHA-256 and exact 42-byte transcript | Direct static dataflow and deterministic tests | Server challenge generation absent |
-| Type `0x16` authenticates before AES-256-CBC decrypt | Direct static API/dataflow and tests | Envelope-key initialization and runtime use unresolved |
-| PSK supplies envelope keys | Not established | Keys are separate 32-byte inputs; no KDF was recovered |
+| Launcher type `0x16` authenticates before AES-256-CBC decrypt | Direct static API/dataflow and tests | Launcher envelope-key initialization and runtime use unresolved |
+| Launcher handshake PSK supplies Launcher envelope keys | Not established | Launcher keys are separate 32-byte inputs; no Launcher KDF was recovered |
 | Other syntactically accepted lower types have semantics | No supported semantics in B | Only `0x15` is constructed/dispatched; `0x16` is the inbound wrapper |
 | PLK1 size/sequence/hash and mandatory cache round trip | Direct static call/branch contract plus eight complete historical transfers | Cache write itself is not recovered from the public run artifacts |
 | Cache uses current-user DPAPI | Strongly supported: resolved capabilities, inverse dataflow and metadata marker | Absolute cache base unresolved |
@@ -65,7 +65,7 @@ Static claims are based on the identity-pinned reconstruction. Runtime claims ar
 | Successful historical C2, authentication and PLK1 | Direct packet reconstruction | Present in July public Triage runs; absent from the September reruns |
 | Full EXE and direct-DLL `NvSvc` actions are variants | Not supported | Full EXE preserves Tax Notice; direct-DLL sandboxing copies/persists `rundll32.exe` without a replayable DLL argument |
 | Tool mechanics pass deterministic synthetic cases | Reproducible under documented dependencies | See [tooling](tooling.md). |
-| Wireshark Launcher parser matches a real positive capture | Direct passive validation on filtered July flow | Core phase/type-`0x16` distinction still needs implementation and regression coverage |
+| Repository Wireshark Lua parser matches historical Launcher traffic | Direct passive validation on a filtered derivative of the July Triage flow | Not a separate collection or an exact upstream-C-MR build test; Core phase/type-`0x16` handling still needs implementation and regression coverage |
 | Detection accuracy measured | Not established | No representative benign/malicious corpus or production false-positive measurement |
 | Absolute priority or discovery of PackClient | Not claimed | PackClient and its campaign markers predate this research. See [prior work](prior-work.md). |
 

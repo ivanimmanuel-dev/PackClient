@@ -6,6 +6,8 @@ Prior-art review cut-off: **9 September 2026 (UTC)**.
 
 Proofpoint's **27 August 2026** [Carry-On Compromise: TA4922 Packs PackClient](https://www.proofpoint.com/us/blog/threat-insight/carry-compromise-ta4922-packs-packclient) documents the TA4922 campaign context, Tax Notice lineage, PackClient's modular Launcher/Core architecture, representative `PLH1`, `PLC1`, `PLA1`, `PLK1` and `PV10` markers, and existing Emerging Threats coverage.
 
+Deception.Pro's [*New PackClient & HOK (Aug 2026)*](https://blog.deception.pro/blog/new-packclient-hok-aug2026) provides later hands-on-keyboard and attacker-controlled ManageEngine context. That operator telemetry is prior public reporting; its private backend artifacts were not available to this research.
+
 The [MalwareBazaar campaign ZIP](https://bazaar.abuse.ch/sample/7108ff29916d064216aa2ece7fb395f1e3a73d12d19895bffc0bd46806cbf85a/) anchors the recovered `7108FF…F85A` lineage used in the [architecture](architecture.md).
 
 ## What this work contributes

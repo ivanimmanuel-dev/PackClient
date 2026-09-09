@@ -43,12 +43,12 @@ def need(value,message):
 
 pages={}
 for p in DIST.rglob('*.html'):
-    pages[p.resolve()]=Page(p.read_text())
+    pages[p.resolve()]=Page(p.read_text(encoding='utf-8'))
     need(not pages[p.resolve()].duplicates,f'{p}: duplicate IDs')
     for img in pages[p.resolve()].images:
         need(bool(img.get('alt')),f'{p}: missing image alternative text')
 for p in [*ROOT.glob('*.md'),*(ROOT/'docs').rglob('*.md'),*(ROOT/'detections').rglob('*.md')]:
-    pages[p.resolve()]=Page(markdown.markdown(p.read_text(),extensions=['tables','fenced_code','toc']))
+    pages[p.resolve()]=Page(markdown.markdown(p.read_text(encoding='utf-8'),extensions=['tables','fenced_code','toc']))
 links=0
 for p,content in pages.items():
     for link in content.links:

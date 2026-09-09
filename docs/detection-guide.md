@@ -10,7 +10,7 @@ The repository includes the following detection rules under [`detections/`](../d
 
 - Sigma rules for the observed `NvSvc` task, suspicious bare 32-bit service host, screenshot-worker mode, and active-session mode;
 - a YARA rule for the recovered launcher's distinctive marker constellation;
-- Suricata rules for candidate PLH1/PLC1/PLA1 frame prefixes and version bytes.
+- local Suricata regression selectors for PLH1/PLC1/PLA1 frame prefixes and version bytes; these duplicate public ET object-magic coverage and are not presented as novel signatures.
 
 The included rules are experimental and should be validated against local telemetry and legitimate NVDA deployments.
 
@@ -19,7 +19,7 @@ The included rules are experimental and should be validated against local teleme
 | Candidate change | Decision | Reason |
 |---|---|---|
 | Broaden Sigma #6280 to generic `rundll32.exe` or the `NvSvc` directory | **Do not broaden** | The direct-DLL Triage task caused the carrier to copy/persist its sandbox host without the original DLL argument; that nonfunctional replay is an execution-context artifact, while NVIDIA-branded ProgramData paths can be legitimate |
-| Add more stateless Suricata rules for `PLH1`, `PLC1`, `PLA1`, `PLK1` or `PV10` | **Do not add duplicates** | Public/ET and repository rules already cover the visible markers; another magic match does not fix segmentation or phase ambiguity |
+| Add more stateless Suricata rules for `PLH1`, `PLC1`, `PLA1`, `PLK1` or `PV10` | **Do not add duplicates** | Public ET already covers the visible markers; repository prefix rules are retained as local regression examples, while another magic match would not fix segmentation or phase ambiguity |
 | Add stream/transaction state | **High-value future work** | Historical captures validate the order `PLH1 -> PLC1 -> PLA1 -> PLK1`; reassembly-aware ordering is more discriminating and less packetization-sensitive |
 | Add Core YARA | **Hold for corpus testing** | The recovered Core supplies a stable constellation, but exports, PDB fragments or `PV10` alone are not sufficient and a benign-collision study is still missing |
 | Change the Wireshark MR | **Follow-up needed, not changed here** | The Launcher parser matches the positive July flow; Core reuses type `0x16` with the opposite ciphertext-length endianness, so decoding must be phase-aware |
@@ -157,7 +157,9 @@ The lengths encode `4-byte type + object size`. The Suricata rules additionally 
 
 The [Proofpoint IOC table](https://www.proofpoint.com/us/blog/threat-insight/carry-compromise-ta4922-packs-packclient) lists `154.36.188[.]201` as post-infection infrastructure for July 15, without a port. The preserved process dump separately records a timed-out attempt to that address on TCP/443. Historical July Triage captures additionally establish successful raw PackClient framing on the same endpoint, including the ordered Launcher handshake, PLK1 Core delivery and post-Core application traffic. Port 443 must not be labelled TLS without TLS records.
 
-The filtered positive-flow PCAPNG validates the current Wireshark Lua dissector's Launcher-side recognition and PLK1 metadata on an independently captured stream. Its SHA-256 is `AB437D0EAE5E3C93764B89A3ECC5F6940D3CBEE0C2BE8D80D34CD7CB4CA38875`; it is a derivative of `260715-wd77daas7l/behavioral1`, not a separate collection.
+The filtered positive-flow PCAPNG validates the current repository Lua dissector's Launcher-side recognition and PLK1 metadata against historical sandbox traffic. Its SHA-256 is `AB437D0EAE5E3C93764B89A3ECC5F6940D3CBEE0C2BE8D80D34CD7CB4CA38875`; it is a 1,033-packet flow-filtered derivative of `260715-wd77daas7l/behavioral1`, conversation `10.127.0.66:49887 <-> 154.36.188.201:443`, not a separate collection. This result must not be conflated with an exact build/TShark regression of the separate upstream C merge request.
+
+A phase-aware follow-up should cover four fixtures: the positive July Launcher flow; a PLH1-only retry flow; a synthetic Launcher type-`0x16` envelope with big-endian ciphertext length; and a synthetic Core type-`0x16` envelope with little-endian length. The last two must verify that one outer type is interpreted according to connection phase rather than by a universal byte order.
 
 ### Proofpoint Emerging Threats coverage audit
 
@@ -186,7 +188,7 @@ PackPlugin.Registry.dll                 (UTF-16)
 PackPlugin_BrowserMgr_TryHandleExtRemote
 ```
 
-It matched the raw Core and all 352 mapped Core records while matching 0/86 mapped Launcher records and 0/30 surrounding/non-PE allocations. That is useful internal discrimination, not production validation. It must be checked against a broad benign and unrelated-malware corpus before becoming a published production rule.
+An offline Python implementation of this exact byte-string/PE condition matched the raw Core and all 352 mapped Core records while matching 0/86 mapped Launcher records and 0/30 surrounding/non-PE allocations. The check did not compile or execute a Core `.yar` file. It therefore establishes useful within-case candidate separation, not YARA-engine correctness or production validation. The candidate must be expressed as an actual rule and checked against broad benign and unrelated-malware corpora before publication as a production detector.
 
 ## Hash and filename IOCs
 
@@ -199,6 +201,7 @@ It matched the raw Core and all 352 mapped Core records while matching 0/86 mapp
 | Embedded launcher B | `46B34789196733FAB62193F0AAEDB198B09F1362F9B10CA1DD70CF81D68B01AD` | Static reconstruction; derived bytes not published |
 | Reconstructed `PackClientCore.dll` | `4DE6EF8647FB4B599966A233740CB0514D1E71B8019A1A1792ED7E1E514EDF1C` | Eight identical historical PLK1 transfers |
 | Reconstructed Core `.text` | `F06FF7AB6D62B761344CAECBCC6857912F7543F43C0E5FF462D2174BADB0CA3F` | Exact match across 352 mapped Core images |
+| Protected injected package allocation | `E49581067CC2AA5ABD09C8DF42D6FBD87CB064A9363FE8B52D8369FD1C51FFE5` | Build-specific 417,792-byte memory identity across 12 July/August tasks; distinct from the 415,071-byte logical record |
 
 Filename leads:
 
@@ -217,7 +220,7 @@ Names are mutable and should not be the only detection condition.
 |---|---|---|
 | [T1574.001 — DLL](https://attack.mitre.org/techniques/T1574/001/) | Signed host resolves malicious colocated helper DLL | Confirmed |
 | [T1053.005 — Scheduled Task/Job](https://attack.mitre.org/techniques/T1053/005/) | `NvSvc` at-logon persistence | Confirmed in runtime evidence |
-| [T1113 — Screen Capture](https://attack.mitre.org/techniques/T1113/) | GDI worker and BGRX response contract | Confirmed implementation; live frame not completed |
+| [T1113 — Screen Capture](https://attack.mitre.org/techniques/T1113/) | Launcher implements the raw-BGRX `1RCP` worker; Core separately implements GDI/WIC capture and `PV10` JPEG serialization | Launcher implementation confirmed without a completed real exchange; Core implementation and 15 historical frames confirmed; no bridge between them established |
 | [T1134.002 — Create Process with Token](https://attack.mitre.org/techniques/T1134/002/) | Duplicated/retargeted token passed to `CreateProcessAsUserW` | Confirmed implementation |
 | [T1055.003 — Thread Execution Hijacking](https://attack.mitre.org/techniques/T1055/003/) | Carrier creates a suspended surrogate; Triage records remote package writes followed by primary-thread `SetThreadContext` and execution | Confirmed behavior; exact static write call site and instruction-pointer value remain unresolved; do not label it classic hollowing |
 
@@ -236,7 +239,7 @@ Names are mutable and should not be the only detection condition.
 - Existing object-magic coverage can miss split/coalesced sequences or lose the ordered state between Launcher and Core. Stream-aware state is the non-duplicative improvement.
 - Launcher and Core type `0x16` records use different ciphertext-length byte order; phase-blind parsing can misdecode Core traffic.
 - Sigma field names and command-line normalization vary by backend.
-- YARA marker rules identify a code/data constellation, not a campaign actor by themselves.
+- The included Launcher YARA rule identifies a code/data constellation, not a campaign actor. The proposed Core condition has only a Python-emulated within-case corpus result and is not yet an included YARA rule.
 - Sigma regex/backend semantics must be checked on the destination platform. The bare-svchost rule expects an absolute drive path; aliases, environment-variable paths, and missing parent telemetry are coverage limits.
 - The screenshot-worker rule accepts its distinctive token after renaming. Active-session tokens additionally require image/original-filename identity. Similarly named unrelated programs can still match.
 - Tests use synthetic positive/negative examples, not the original malware or a representative benign deployment corpus. Production false-positive and detection rates have not been measured.

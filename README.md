@@ -29,6 +29,8 @@ Reconstruction of PackClient's launcher, PLK1 delivery, recovered Core, plugin-l
 flowchart TD
     H["Signed NVDA Host<br/>Tax_Notice_23665.exe"]
     C["Carrier DLL<br/>nvdaHelperRemote.dll"]
+    V["Suspended 32-bit surrogate<br/>SysWOW64\\svchost.exe"]
+    D["Injected Donut package<br/>exact x86 loader + embedded A"]
 
     subgraph P[" "]
         A["Executable A<br/>Wrapper / Mapper"]
@@ -37,7 +39,9 @@ flowchart TD
     end
 
     H -->|"DLL sideload"| C
-    C -->|"transformed package<br/>XOR 0x70"| A
+    C -->|"creates suspended process<br/>remote placement + context hijack"| V
+    V -->|"call-over-data entry"| D
+    D -->|"maps and starts"| A
 
     B --> T["Transport + Authentication<br/>PLH1 / PLC1 / PLA1"]
     B --> K["PLK1 Delivery + Cache"]
@@ -94,7 +98,7 @@ Additional reproducibility gaps are documented in [Evidence](docs/evidence.md) a
 
 ## Prior Work
 
-PackClient was previously documented by Proofpoint. This work focuses on implementation details of the recovered launcher build. See [Prior Work](docs/prior-work.md) for more details.
+PackClient was previously documented by Proofpoint and Deception.Pro. This work adds implementation details from the recovered carrier, Launcher and Core build while separating prior reporting from independent reconstruction. See [Prior Work](docs/prior-work.md) for more details.
 
 ## Citation
 

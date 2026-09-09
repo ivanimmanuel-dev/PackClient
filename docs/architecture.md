@@ -11,11 +11,14 @@ This document describes the recovered July 2026 Tax Notice build. All code locat
 | Signed host, `Tax_Notice_23665.exe` | 120,984 | `93DD8B7B393289F88493596FAA4AE70054D9EB4FE47F2DD334F0C6BB5262F2A8` |
 | Carrier, `nvdahelperremote.dll` | 455,527 | `7295090C2CB63EBC43F932451971C41F9D015D2741E97AE3D9855F5AE87CFF94` |
 | Transformed package | 415,071 | `0419AE7381CAA97172C40F5AEA601B8A22F1F58D27F3930509AF5808E043F65E` |
+| Stable protected package allocation in Triage memory | 417,792 (`0x66000`) | `E49581067CC2AA5ABD09C8DF42D6FBD87CB064A9363FE8B52D8369FD1C51FFE5` |
 | Executable A, wrapper/mapper | 397,312 (`0x61000`) | `28B8EB812E0F0AB724475BD51E3DC1F618BCB08B05998C414D4193009BF8D598` |
 | Executable B, `PackClientLauncher.exe` | 271,872 (`0x42600`) | `46B34789196733FAB62193F0AAEDB198B09F1362F9B10CA1DD70CF81D68B01AD` |
 | Reconstructed `PackClientCore.dll` | 985,088 | `4DE6EF8647FB4B599966A233740CB0514D1E71B8019A1A1792ED7E1E514EDF1C` |
 
-The verified IMG traversal contains exactly the host and carrier: carrier extent `0xF000`, host extent `0x7E800`. The host is an AMD64 NVDA/NV Access executable importing `nvdaHelperRemote.dll` by bare filename. The malicious colocated DLL uses a legitimate helper name. This supports a DLL search-order sideload configuration, subsequently corroborated by a runtime `Load Image` event. See [NV Access's helper documentation](https://github.com/nvaccess/nvda/blob/master/nvdaHelper/readme.md) and [MITRE T1574.001](https://attack.mitre.org/techniques/T1574/001/).
+The 415,071-byte object is the logical XOR-decoded record recovered from the carrier. The 417,792-byte object is the complete protected private allocation dumped from the surrogate in twelve July/August Triage tasks. The allocation is 2,721 bytes larger; the retained evidence does not establish a role for those additional bytes, so the two hashes must not be treated as conflicting identities or silently collapsed into one object.
+
+The verified IMG traversal contains exactly the host and carrier: carrier extent `0xF000`, host extent `0x7E800`. The host is an AMD64 NVDA/NV Access executable with only two imports, `KERNEL32!ExitProcess` and `nvdaHelperRemote.dll!injection_initialize`; the helper IAT slot is at host RVA `0xF268`. The malicious colocated DLL uses a legitimate helper name. This supports a DLL search-order sideload configuration, subsequently corroborated by a runtime `Load Image` event. See [NV Access's helper documentation](https://github.com/nvaccess/nvda/blob/master/nvdaHelper/readme.md) and [MITRE T1574.001](https://attack.mitre.org/techniques/T1574/001/).
 
 ## Carrier and transformed package
 
@@ -52,6 +55,8 @@ The header bytes are `70 00 00 00 5F 55 06 00`. The deterministic transform prod
 | `0x627C5–0x6555F` | Terminal region: four-byte ABI glue, 11,647-byte Donut loader, 23 zero bytes |
 
 At record offset `0x627C5`, four-byte glue (`pop ecx; pop edx; push ecx; push edx`) recovers the embedded-instance pointer from the opening `CALL` return address while preserving the caller return address. The following 11,647 bytes, beginning at `0x627C9`, are byte-identical to Donut `LOADER_EXE_X86` at commit `47758d787209dd1744f58c140102ac91b649df16`; their SHA-256 is `0C29CCCFF1B027D57C467564A333E9ADE455144649909A4B797B09B43002AC71`. The terminal region ends with 23 zero bytes. This closes the terminal-loader ABI and supports build-specific Donut attribution without incorrectly treating the glue/padding as part of the compared loader.
+
+The parsed unencrypted Donut instance is embedded rather than HTTP/DNS staged. It contains 63 API hashes and dependency list `ole32;oleaut32;wininet;mscoree;shell32`; requests no AMSI/WLDP/ETW bypass; overwrites mapped PE headers; and runs the 397,312-byte unmanaged executable A as a thread. Exit option 3 blocks indefinitely, compression is disabled, and original-entry-point value 0 means the loader does not return the hijacked primary thread to the original `svchost.exe` entry point.
 
 ## A maps B inside the current process
 
@@ -120,4 +125,4 @@ The one-shot crash path tries `launcher_crash.dmp` beside the current process mo
 
 ## Evidence boundaries
 
-The recovered launcher exposes transport, delivery/cache, session continuity, a screenshot worker and supporting lifecycle facilities. The Core and upstream surrogate-population method are now recovered. The external screenshot peer, any `1RCP`-to-`PV10` bridge, the Launcher's envelope-state writer, the mutex-export consumer and all delivered plugin binaries remain missing. Full limitations and evidence grades are in [limitations](limitations.md), [evidence](evidence.md), and the [Core and artifact audit](core-and-artifact-audit.md).
+The recovered launcher exposes transport, delivery/cache, session continuity, a screenshot worker and supporting lifecycle facilities. The Core is recovered, and the upstream high-level placement/start behavior is established as remote package writes followed by primary-thread context hijacking. The exact carrier write API/call site and installed instruction-pointer value remain unresolved, as do the external screenshot peer, any `1RCP`-to-`PV10` bridge, the Launcher's envelope-state writer, the mutex-export consumer and all delivered plugin binaries. Full limitations and evidence grades are in [limitations](limitations.md), [evidence](evidence.md), and the [Core and artifact audit](core-and-artifact-audit.md).

@@ -11,7 +11,7 @@ This publication reconstructs one PackClient launcher build and its independentl
 | Screenshot peer | Worker command grammar, endpoint open and five-DWORD `1RCP` contract | Endpoint creator, initial launcher, peer identity or downstream pixel consumer |
 | Screenshot runtime | Real worker reached the capture/copy path; final attempt shows an AV and zero-byte READY timeout | Completed real exchange or causal failure diagnosis |
 | DIB lifetime | Deletion call precedes the later bits-pointer copy | Successful deletion return or causal use-after-free proof |
-| Envelope keys | Separate 32-byte AES and HMAC key globals gated by a ready byte | Key values, derivation, initializer/writer, activation time or successful encrypted receive |
+| Launcher envelope keys | Separate 32-byte AES and HMAC key globals gated by a ready byte | Launcher key values, derivation, initializer/writer, activation time or successful encrypted receive; Core's separate `auth_psk` KDF is recovered |
 | In-memory launcher state | Package/A/B private mappings, exact PE/section anchors, A-entry thread, remote package writes and primary-thread context hijacking | Exact carrier write API/call site, installed instruction pointer, a second carrier build, or a complete native trace |
 | Network | Local sessions show timeout/failed SYNs; historical July captures show full Launcher handshake, PLK1 and Core traffic | Server implementation, September response cause, or plugin delivery |
 | Session continuity | Exact token, spawn and drift logic | Successful runtime active-session replacement |
