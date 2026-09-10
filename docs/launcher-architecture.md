@@ -29,7 +29,7 @@ Three carrier call sites establish its process-creation contracts:
 | `0x18E2` | `ShellExecuteExW`, verb `runas`, current module path, null parameter and directory fields | Requests self-elevation |
 | `0x1BEB` | `CreateProcessW`, `System32`/`SysWOW64` `svchost.exe` path, null command line, flags `0x08000004` (`CREATE_NO_WINDOW` plus `CREATE_SUSPENDED`) | Creates a suspended surrogate |
 
-The surrogate’s process and thread handles flow into native/WOW64 context handling and `ResumeThread` in the carrier routine at `0x1900`. In Triage task `260828-py7ysahr4y`, `Tax_Notice_23665.exe` issued 53 sandbox-labelled `WriteProcessMemory` operations against a newly created `SysWOW64\svchost.exe`. A new `0x66000`-byte private region appeared at `0x00440000`, followed by `SetThreadContext` on the primary thread. The same sequence recurs throughout the retained July and August telemetry.
+The surrogate’s process and thread handles flow into native/WOW64 context handling and `ResumeThread` in the carrier routine at `0x1900`. In Triage task `260828-py7ysahr4y`, `Tax_Notice_23665.exe` issued 53 sandbox-labelled `WriteProcessMemory` operations against a newly created `SysWOW64\svchost.exe`. A new `0x66000`-byte private region appeared at `0x00440000`, followed by `SetThreadContext` on the primary thread. The same sequence recurs throughout the reviewed public July and August Triage telemetry.
 
 Together, the static and runtime evidence establish remote package placement and primary-thread context hijacking. The exact carrier code responsible for the writes and the instruction pointer installed by `SetThreadContext` remain unresolved. No image replacement or remote-thread creation was observed.
 

@@ -42,7 +42,7 @@ Collect process creation, Task Scheduler Operational events, Security event 4698
 
 ### Suspended 32-bit surrogate
 
-The carrier creates `C:\Windows\SysWOW64\svchost.exe` suspended, places the protected package in it, changes the primary thread context, and resumes execution. In the retained Triage telemetry, one instance received 53 cross-process writes into a private region at `0x00440000` with length `0x66000` before `SetThreadContext`.
+The carrier creates `C:\Windows\SysWOW64\svchost.exe` suspended, places the protected package in it, changes the primary thread context, and resumes execution. In one public Triage run, the surrogate received 53 cross-process writes into a private region at `0x00440000` with length `0x66000` before `SetThreadContext`.
 
 Prioritize a surrogate when several of these conditions occur together:
 

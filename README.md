@@ -94,7 +94,7 @@ The Sigma, Suricata and YARA rules are included as experimental detection candid
 
 The available evidence does not identify the external `1RCP` peer, contain a delivered plugin binary, prove a bridge between `1RCP` and Core `PV10`, recover the server implementation, establish a complete real `1RCP` exchange, or prove the causal diagnosis of the worker failure.
 
-Additional reproducibility gaps are documented in [Evidence](docs/evidence.md) and [Limitations](docs/limitations.md).
+Additional limitations are documented in [Limitations](docs/limitations.md).
 
 ## Prior Work
 
@@ -103,7 +103,5 @@ PackClient was previously documented by Proofpoint and Deception.Pro. This work 
 ## Citation
 
 Use [CITATION.cff](CITATION.cff) to cite the report. 
-
-Research cut-off: 9 September 2026.
 
 Updated publication date: 9 September 2026.

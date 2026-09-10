@@ -353,8 +353,4 @@ Its built-in patterns cover address formats consistent with Bitcoin mainnet and 
 
 [Proofpoint](https://www.proofpoint.com/us/blog/threat-insight/carry-compromise-ta4922-packs-packclient) previously identified PackClient's clipboard-replacement capability. Analysis of this Core build adds the built-in patterns and the `PERCLIENT` and `SYNC` control formats. ETCHOOK does not appear in the captured traffic.
 
-## Persistence observed at runtime
-
-Outside Core, runtime analysis observed two `NvSvc` task outcomes. The full executable scheduled the copied `Tax_Notice_23665.exe`. A direct-DLL sandbox execution scheduled a copied `rundll32.exe`; because the task omitted the original DLL argument, it could not reproduce that invocation. This was a second observed execution path, not evidence of another PackClient variant. See [Runtime analysis](runtime-analysis.md).
-
 Historical infrastructure and detection guidance are available in the [Detection guide](detection-guide.md).
