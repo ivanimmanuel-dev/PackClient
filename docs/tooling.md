@@ -114,7 +114,7 @@ The fallback `pack-launch-dev-psk` is used only with `--use-default-psk`. No env
 
 Core's separate type-`0x16` format is selected with `--phase core` or a validated automatic phase transition. `--core-psk-text` and `--core-psk-hex` supply the recovered `auth_psk` input from which the tool derives independent AES and HMAC keys. Launcher keys and the Core PSK are never treated as interchangeable. Both envelope paths verify HMAC before attempting AES-CBC decryption.
 
-PLK1 verification requires a valid 56-byte header, supported version, zero-based chunk sequence, exact sizes and a matching final SHA-256. Effective sizes are bounded at 128 MiB. Version 2 raw-block LZ4 output is unverifiable when the optional dependency is unavailable or decoding is disabled. Only the capture CLI writes verified payloads, and only when extraction is explicitly requested.
+PLK1 verification requires a valid 56-byte header, supported version, zero-based chunk sequence, exact sizes and a matching final SHA-256. Effective sizes are bounded at 128 MiB. Version 2 transfers that use raw-block LZ4 can be verified only when the optional LZ4 dependency is available and decoding is enabled. The capture CLI writes verified payloads only when extraction is explicitly requested.
 
 ## Wireshark and TShark
 
@@ -139,7 +139,7 @@ packclient.pv10.magic == "PV10"
 packclient.envelope.ciphertext_length == 16
 ```
 
-The dissector distinguishes Launcher big-endian and Core little-endian type-`0x16` layouts, labels the observed Core message types and command text, and validates `PV10` length plus JPEG boundaries. It does not accept keys, verify HMAC, decrypt envelopes, reconstruct PLK1 plaintext, or write artifacts; use the Python capture tool for those operations. Unknown or structurally invalid objects remain conservatively labelled or receive malformed-object diagnostics.
+The Lua dissector recognizes both Launcher and Core traffic, including their different type-`0x16` length encodings, observed Core commands, and `PV10` JPEG framing. It provides protocol metadata only; HMAC verification, decryption, PLK1 reconstruction and artifact extraction are handled by the Python capture tool. Unknown or malformed messages are labelled conservatively.
 
 ## Tests
 
@@ -147,10 +147,10 @@ The dissector distinguishes Launcher big-endian and Core little-endian type-`0x1
 python -B -m unittest discover -s tests -v
 ```
 
-The Python suite contains 124 tests covering framing, direction and phase state, both authenticated-envelope formats, the Core KDF, authentication failure before decryption, AES known-answer vectors, padding, PLK1 sequence/size/hash validation, extraction and atomic output, Core command labels, `PV10`, TCP reassembly, capture-container bounds, CLI output, Wireshark/TShark integration, and detection rules. Optional engines are skipped locally when unavailable.
+The Python suite contains 124 tests. Protocol coverage includes framing, direction and phase tracking, Launcher and Core envelopes, the Core KDF, AES vectors, padding, PLK1 validation and TCP reassembly. Additional tests cover safe failures, atomic extraction, Core commands, `PV10`, capture parsing, CLI behavior, the Wireshark dissector and detection rules. Optional external engines are skipped when they are not installed locally.
 
-The [validation workflow](../.github/workflows/validate.yml) runs the Python suite on Python 3.11–3.13. Its engine-backed job requires LZ4, YARA, pySigma, Suricata, and TShark so those checks cannot silently skip. A separate Windows PowerShell 5.1 job runs the 15-test synthetic screenshot IPC suite.
+The [validation workflow](../.github/workflows/validate.yml) runs the Python tests on Python 3.11–3.13 with LZ4, YARA, pySigma, Suricata and TShark available. A Windows PowerShell 5.1 job runs the 15 screenshot IPC tests.
 
-Local acceptance checks against eight retained historical captures recovered the same 985,088-byte Core from every complete PLK1 transfer, identified the final sequence-10 chunk acknowledgement, labelled post-delivery Core traffic, and extracted 15 valid `PV10` JPEGs. Those historical capture files are not committed as CI fixtures.
+The tools were also validated against historical PackClient captures, including Core recovery and `PV10` extraction. Those captures are not included in the repository.
 
 Detection-engine validation is documented in the [detection guide](detection-guide.md). The separate [screenshot IPC validation](screenshot-ipc-validation.md) covers the local `1RCP` peer/simulator.
