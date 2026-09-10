@@ -1,111 +1,242 @@
 # Runtime analysis
 
-Two local runtime sessions connect the static reconstruction to launcher residence, persistence and failed outbound behavior. Historical public Triage sessions separately preserve successful delivery and Core traffic. The screenshot-worker experiments are documented separately in [screenshot IPC](screenshot-ipc.md). The PID 3696 session includes interrupted and manual launches, so its observations are treated as scoped events rather than one uninterrupted baseline.
+Runtime captures show PackClient residing inside bare `SysWOW64\svchost.exe` processes, installing persistence, and repeatedly attempting to reach its configured endpoint. Public Triage sessions also preserve the remote-placement sequence and successful historical Core delivery, while two September runs compare normal full-EXE execution with direct invocation of the carrier DLL.
 
-## PID 5812
+The screenshot-worker experiments are documented separately in [Screenshot IPC](screenshot-ipc.md).
 
-The process tree records staged host PID 10164, intermediate descendant 9068 and bare 32-bit `SysWOW64\svchost.exe` PID 5812, followed by task activity. Its command line lacks the normal service-host group/selection arguments, supporting a malware-spawned surrogate. This original PID 5812 evidence set does not independently reveal how PackClient code was placed and started inside it; later Triage telemetry establishes remote package writes and primary-thread context hijacking while leaving the exact carrier write call site/API and installed instruction-pointer value unresolved.
+## Local capture: PID 5812
 
-Task `\NvSvc` uses a logon trigger, `InteractiveToken`, `HighestAvailable`, and target `C:\ProgramData\NVIDIA Corporation\NvSvc\Tax_Notice_23665.exe` under the current user's principal. The older LastWrite values visible in this session do not by themselves establish backdating; the PID 3696 trace below records the writes directly.
+### Process and persistence
 
-Startup Apps also showed an enabled Tax Notice entry, but its backing registration was not recovered in this session.
+The process tree records staged host PID 10164, intermediate descendant PID 9068, and bare 32-bit `SysWOW64\svchost.exe` PID 5812. The `svchost.exe` command line lacks the service-group and service-selection arguments normally used by Windows, supporting its identification as a PackClient surrogate.
+
+Task `\NvSvc` uses a logon trigger, `InteractiveToken`, `HighestAvailable`, and the following target under the current user's principal:
+
+```text
+C:\ProgramData\NVIDIA Corporation\NvSvc\Tax_Notice_23665.exe
+```
+
+Older LastWrite values are visible in this session, but this capture alone does not prove they were backdated. The later PID 3696 trace records the timestamp changes directly.
 
 ### Memory correspondence
 
-The user-mode dump captured private mappings and memory-information data at `2026-09-04T23:21:16Z`. A and B do not appear as ordinary registered modules.
+The user-mode dump captured the following private mappings:
 
-| Runtime object | Address/range | Linkage |
-|---|---|---|
-| Package allocation | `0x002E0000–0x00346000`, 417,792 bytes, private RX | A at offset `0x128D`, B at `0x1CC1`, matching the transformed record |
-| Mapped A | `0x02C70000–0x02CD4000`, `0x64000` | Timestamp `0x6A27AE4B`, entry RVA `0x1308`, image-sized private mapping |
-| Mapped B | `0x05410000–0x05458000`, `0x48000` | Timestamp `0x6A3CB0B5`, entry RVA `0x12FAC`, exact section layout/protections |
+| Runtime object | Address or range | Identification |
+| --- | --- | --- |
+| Protected package | `0x002E0000–0x00346000`, 417,792 bytes, private RX | Contains A at offset `0x128D` and B at offset `0x1CC1` |
+| Mapped A | `0x02C70000–0x02CD4000`, size `0x64000` | Timestamp `0x6A27AE4B`, entry RVA `0x1308` |
+| Mapped B | `0x05410000–0x05458000`, size `0x48000` | Timestamp `0x6A3CB0B5`, entry RVA `0x12FAC`, matching section layout and protections |
 
-Thread 1884 starts at `0x02C71308`, exactly A base plus entry RVA `0x1308`; no registered module owns that address. VMMap independently records the A- and B-sized allocations. The private RX package allocation contains A and B at the same offsets as the static transformed package.
+Thread 1884 starts at `0x02C71308`, exactly A's base plus its entry RVA. No registered module owns that address.
 
-Raw B copies of `.data`, `.fptable`, `.rsrc` and `.reloc` match their corresponding static sections; mapped `.rsrc` and `.reloc` also match exactly. B-specific state is present through the named mutant:
+Copies of B's `.data`, `.fptable`, `.rsrc`, and `.reloc` sections correspond to the reconstructed Launcher image. The mapped `.rsrc` and `.reloc` sections match exactly. B's named state is also present:
 
 ```text
 \BaseNamedObjects\PackClientLauncher.Session.9b2126fc5ed31443
 ```
 
-The package coordinates, PE metadata, section correspondence, A-entry thread, VMMap layout and named state provide converging evidence that the reconstructed A/B chain was resident and active. Static A contains B's local mapper. Later Triage tasks independently record remote writes of the stable package and `SetThreadContext` against the newly created surrogate's primary thread. The exact carrier-side write API/call site and installed instruction-pointer value remain unresolved, and the original local dump alone did not establish the upstream mechanism.
+The package structure, embedded offsets, mapped images, A-entry thread, section correspondence, and named mutant show that the reconstructed A/B chain was resident inside PID 5812. A contains the mapper responsible for loading B.
 
-### Configuration and connection attempt
+### Connection attempt
 
-The environment contains `PACK_LAUNCH_PULL_HOST=154[.]36[.]188[.]201` and `PACK_LAUNCH_PULL_PORT=443`; no `PACK_LAUNCH_PSK` entry is present at capture time. Launcher buffers record a slot-0 pull attempt to that endpoint with `WSA=10060`.
+The process environment contains:
 
-[Microsoft defines 10060 as WSAETIMEDOUT](https://learn.microsoft.com/en-us/windows/win32/winsock/windows-sockets-error-codes-2). This establishes an attempted connection and timeout, not TCP completion, authentication, PLK1 delivery, encrypted traffic, Core loading or successful C2.
+```text
+PACK_LAUNCH_PULL_HOST=154[.]36[.]188[.]201
+PACK_LAUNCH_PULL_PORT=443
+```
 
-No independently identifiable Core PE was found in this dump. Core-related strings inside B describe its loading contract and do not establish a resident Core image at this capture time. The Core recovered from separate historical Triage artifacts must not be retroactively attributed to this dump.
+No `PACK_LAUNCH_PSK` value was present when the environment was captured. Launcher buffers record a slot-0 pull attempt to the configured endpoint ending with `WSA=10060`, the [Windows socket timeout error](https://learn.microsoft.com/en-us/windows/win32/winsock/windows-sockets-error-codes-2).
+
+This establishes an attempted connection and timeout. It does not establish TCP completion, authentication, PLK1 delivery, Core loading, or successful C2 traffic.
+
+No independently identifiable Core image was found in this dump. Core-related strings inside B describe its loading interface, not a resident Core DLL.
 
 ### Procmon coverage
 
 The Procmon capture spans about **9.48 seconds** and begins roughly **44 minutes 45 seconds after** PID 5812 started. It is therefore not detonation-time coverage. No PID 5812 network activity appears in that late window, which does not cover the earlier connection attempt.
 
-## PID 3696
+## Local capture: PID 3696
 
-The Procmon timeline spans `15:27:40` to `16:49:15` local time on September 5 (`America/Toronto`); Sysmon UTC timestamps correlate with that timeline.
+This session includes several interrupted and manual launches, so the events below describe individually correlated activity rather than one uninterrupted execution.
 
-### Correlated events
+### Execution timeline
 
-| Local time, September 5 | Supported event |
-|---|---|
-| `15:42:35` | Medium-integrity host PID 8492 starts; adjacent DLL open fails with `0xC0000906`, followed by the same exit status |
+| Local time, September 5 | Observed event |
+| --- | --- |
+| `15:42:35` | Medium-integrity host PID 8492 starts; its adjacent DLL open fails with `0xC0000906`, followed by the same exit status |
 | `15:48:19` | Downloads host PID 1512 repeats the adjacent-DLL failure |
 | `15:50:02.607` | Medium-integrity host PID 5952 successfully loads the adjacent DLL |
-| `15:50:14.734` | Same host relaunches as high-integrity PID 2116; parent exits; child loads the companion DLL |
-| `15:50:17.398` | PID 2116 creates high-integrity bare `SysWOW64\svchost.exe` PID 3696 |
-| `15:50:17.413–.423` | Elevated host installs hidden ProgramData host/DLL copies, backdates LastWrite to July 15, writes HKCU Run/RunOnce and starts task creation |
-| `15:50:17.535` | `schtasks` creates the highest-available `\NvSvc` logon task |
-| `15:50:28.196` | Packet evidence begins recording quoted failed SYN attempts to port 443 |
-| `16:22:41` | Another manual launch repeats persistence; its bare child PID 6716 survives about 0.33 seconds |
-| `16:28:43` | Task Scheduler starts persisted host PID 5764; bare child PID 5748 survives about 0.12 seconds |
-| `16:35:40` | Dump preserves the original long-lived PID 3696 |
-| `16:51:55.711` | Last quoted SYN failure in the packet capture, extending beyond the Procmon interval |
+| `15:50:14.734` | The host relaunches with high integrity as PID 2116; the parent exits and the elevated child loads the companion DLL |
+| `15:50:17.398` | PID 2116 creates bare high-integrity `SysWOW64\svchost.exe` PID 3696 |
+| `15:50:17.413–15:50:17.423` | The elevated host installs hidden ProgramData copies, changes their LastWrite times to July 15, writes HKCU Run and RunOnce values, and begins task creation |
+| `15:50:17.535` | `schtasks.exe` creates the highest-available `\NvSvc` logon task |
+| `15:50:28.196` | The packet capture begins recording failed connection attempts to port 443 |
+| `16:22:41` | Another manual launch repeats persistence; its bare child PID 6716 survives approximately 0.33 seconds |
+| `16:28:43` | Task Scheduler launches the persisted host as PID 5764; bare child PID 5748 survives approximately 0.12 seconds |
+| `16:35:40` | The dump preserves the original long-lived PID 3696 |
+| `16:51:55.711` | The final quoted SYN failure appears after the Procmon capture has ended |
 
-The integrity transition corroborates the static `runas` path. PID 3696 and `schtasks` PID 4600 are siblings under PID 2116; `conhost` PID 8248 is a child of `schtasks`. Because PID reuse occurs in this session, process joins use timestamp, image, parent and Sysmon ProcessGuid where available.
+The transition from medium to high integrity agrees with the Launcher's recovered `runas` path.
 
 ### Persistence
 
-The elevated host writes `NvSvc` under both HKCU `Software\Microsoft\Windows\CurrentVersion\Run` and `RunOnce`, pointing to the ProgramData Tax Notice host. Task `\NvSvc` uses a logon trigger, `InteractiveToken`, `HighestAvailable`, `MultipleInstancesPolicy=IgnoreNew` and the same target.
+The elevated host writes `NvSvc` under both:
 
-The later Autoruns snapshot contains both an NvSvc logon entry and scheduled-task entry. Its NV Access label reflects the legitimate host signature, not the companion DLL. A later task-owned execution confirms the persisted path was launched, although the trace does not distinguish a fresh logon trigger from an on-demand task start.
+```text
+HKCU\Software\Microsoft\Windows\CurrentVersion\Run
+HKCU\Software\Microsoft\Windows\CurrentVersion\RunOnce
+```
 
-This session also records the LastWrite backdating operations directly.
+Both values point to the ProgramData copy of `Tax_Notice_23665.exe`.
 
-### Failed network observations
+Task `\NvSvc` uses:
 
-The packet capture contains **373 ICMP type/code `3/1` messages quoting TCP SYNs** to `154[.]36[.]188[.]201:443`: ACK clear, no payload, across 288 unique source ports. No SYN-ACK or established TCP/application session appears.
+- an at-logon trigger;
+- `InteractiveToken`;
+- `HighestAvailable`;
+- `MultipleInstancesPolicy=IgnoreNew`;
+- the same ProgramData executable.
 
-Process Explorer separately shows PID 3696 in `SYN_SENT` to the same endpoint at local source ports 54581 and 50275. This directly associates PID 3696 with those socket entries at those moments. The packet capture has no PID metadata, so attribution of every quoted SYN to PID 3696 remains correlation rather than direct packet-to-process linkage.
+`HighestAvailable` applies to the selected user and does not mean the task runs as SYSTEM.
 
-The capture does not establish why the connection attempts failed.
+The Autoruns snapshot contains both the NvSvc logon entry and scheduled-task entry. Its NV Access label comes from the legitimate signed host and does not describe the adjacent malicious DLL. A later task-owned process confirms that the persisted path was executed, although the capture does not distinguish an actual logon trigger from an on-demand task launch.
 
-### Package and mapped B
+Unlike the earlier PID 5812 evidence, this trace directly records the LastWrite changes.
 
-The PID 3696 user-mode dump records process creation at `19:50:17Z` and snapshot time `20:35:40Z`, preserving the long-lived process and its private mappings.
+### Failed network activity
 
-| Object | Coordinates | Comparison |
-|---|---|---|
-| Package allocation | RX at `0x00680000`, size `0x66000` | A at `0x0068128D`, raw B at `0x00681CC1`; the first 415,071 bytes differ at eight bytes from the static package |
-| Mapped B | Private image at `0x02F10000`, size `0x48000` | Matching headers, six sections, timestamp `0x6A3CB0B5`, entry RVA `0x12FAC` |
+The packet capture contains 373 ICMP destination-unreachable messages quoting TCP SYNs sent to:
 
-The eight changed package bytes occupy three inclusive record ranges: `0x5753–0x5756`, `0xDD8E–0xDD8F` and `0x3CDE7–0x3CDE8`, corresponding to B RVAs `0x4692`, `0xCCCD` and `0x3C326`.
+```text
+154[.]36[.]188[.]201:443
+```
 
-After normalizing 4,023 expected HIGHLOW relocations and 188 IAT slots, `.rsrc` and `.reloc` match exactly; remaining differences are six `.text`, two `.rdata`, 608 `.data` and eight `.fptable` bytes.
+The quoted packets have no ACK flag or payload and span 288 unique client source ports. No SYN-ACK, established TCP stream, or PackClient application exchange appears.
 
-The package comparison contains three changed ranges totaling eight bytes. Three straightforward little-endian 6666-to-443 substitutions explain six of them; the remaining two cannot be resolved without the original per-site before/after bytes. Port 443 is independently observed in the runtime network evidence.
+Process Explorer separately associates PID 3696 with `SYN_SENT` sockets to the same endpoint from local ports 54581 and 50275. Because the packet capture itself contains no process identifiers, those socket views directly identify only those two connections; the remaining quoted SYNs are correlated by time and destination.
 
-No independently identifiable Core PE was found in this dump. Separate historical Triage artifacts recover Core independently.
+The evidence establishes repeated connection attempts but not the reason they failed.
 
-## Historical July and September Triage sessions
+### Package and mapped Launcher
 
-The historical July reports `260715-wd77daas7l` and `260716-dhnz7aft6z` each contain four complete Launcher PLK1 transfers. Their packet streams progress through `PLH1 -> PLC1 -> PLA1 -> PLK1`, reconstruct the same 985,088-byte `PackClientCore.dll`, and continue into bidirectional Core traffic including 15 `PV10` JPEG frames. See [Core analysis](core-analysis.md) for the recovery details and plugin behavior.
+The PID 3696 dump preserves the long-lived surrogate and its private mappings:
 
-The researcher-run September tasks answer a different question. In `260908-zwr5naybjb`, full-EXE execution persists `Tax_Notice_23665.exe`, while direct-DLL execution through `rundll32.exe …nvdahelperremote.dll,#1` causes the carrier to copy and persist the sandbox host as `rundll32.exe` without the DLL argument. The latter is a nonfunctional replay artifact of the direct-DLL invocation, not evidence of another PackClient variant. The one-hour `260909-abma8sab28` repeat reached the remote endpoint but received no application response; it records PLH1 retries without PLC1, PLK1, Core or plugin delivery.
+| Runtime object | Coordinates | Identification |
+| --- | --- | --- |
+| Protected package | RX at `0x00680000`, size `0x66000` | Contains A at `0x0068128D` and raw B at `0x00681CC1` |
+| Mapped B | Private image at `0x02F10000`, size `0x48000` | Matching headers, six sections, timestamp `0x6A3CB0B5`, and entry RVA `0x12FAC` |
 
-## Reproducibility
+The first 415,071 package bytes differ from the reconstructed static package at eight bytes across three ranges:
 
-Some PID 3696 event counts and memory comparisons relied on analyst-created helpers whose source and exact invocations were not retained, limiting independent reproduction of those measurements.
+```text
+0x5753–0x5756
+0xDD8E–0xDD8F
+0x3CDE7–0x3CDE8
+```
 
-See [limitations](limitations.md) and [evidence](evidence.md) for unresolved runtime boundaries.
+After accounting for 4,023 expected HIGHLOW relocations and 188 import-address-table slots, `.rsrc` and `.reloc` match exactly. The remaining mapped-image differences comprise six `.text`, two `.rdata`, 608 `.data`, and eight `.fptable` bytes.
+
+Six changed package bytes reflect three `6666`-to-`443` port substitutions. The purpose of the remaining two changed bytes was not resolved.
+
+No independently identifiable Core image was found in this dump.
+
+## Triage runtime evidence
+
+### Remote placement and execution
+
+Public Triage task [`260828-py7ysahr4y`](https://tria.ge/260828-py7ysahr4y) records `Tax_Notice_23665.exe` creating a fresh suspended 32-bit `SysWOW64\svchost.exe`, performing 53 `WriteProcessMemory` operations against it, and producing a `0x66000`-byte private region at `0x00440000`. `SetThreadContext` then targets the surrogate's primary thread.
+
+The same high-level sequence appears in the reviewed July and August Triage reports. The September full-EXE repeat described below also records `WriteProcessMemory` and `SetThreadContext` during both the initial execution and the later persisted execution.
+
+Together with the recovered carrier logic, this establishes remote package placement followed by primary-thread context hijacking. It supports thread execution hijacking rather than image replacement or remote-thread creation. The exact carrier write call site and the instruction-pointer value installed through `SetThreadContext` remain unknown.
+
+### Successful historical delivery
+
+Triage tasks [`260715-wd77daas7l`](https://tria.ge/260715-wd77daas7l) and [`260716-dhnz7aft6z`](https://tria.ge/260716-dhnz7aft6z) preserve successful sessions with the following progression:
+
+```text
+PLH1 → PLC1 → PLA1 → PLK1 → Core traffic
+```
+
+Both sessions deliver the same 985,088-byte `PackClientCore.dll`. Post-delivery traffic contains startup exchange, host inventory, offline-keylogger status, preview control, and 15 `PV10` JPEG frames. The traffic on TCP port 443 is PackClient's own protocol rather than TLS.
+
+No plugin delivery, Core update, ETCHOOK activation, or encrypted Core type-`0x16` message appears in these sessions. Core recovery and post-delivery behavior are detailed in [Core analysis](core-analysis.md).
+
+## September controlled runs
+
+### Full-EXE execution
+
+In [`260908-zwr5naybjb/behavioral1`](https://tria.ge/260908-zwr5naybjb/behavioral1), temporary `Tax_Notice_23665.exe` PID 3892 launches `SysWOW64\svchost.exe` PID 3780. The executable copies itself and its adjacent `nvdaHelperRemote.dll` into:
+
+```text
+C:\ProgramData\NVIDIA Corporation\NvSvc\
+```
+
+It creates `Run\NvSvc`, `RunOnce\NvSvc`, and scheduled task `NvSvc`, all targeting the persisted `Tax_Notice_23665.exe`. Triage later executes that copy, which launches another 32-bit `svchost.exe` and repeats the persistence setup.
+
+The one-hour full-EXE repeat in [`260909-abma8sab28/behavioral1`](https://tria.ge/260909-abma8sab28/behavioral1) shows the same chain:
+
+```text
+Tax_Notice_23665.exe PID 4260
+  → SysWOW64\svchost.exe PID 3684
+  → persisted Tax_Notice_23665.exe PID 3024
+  → SysWOW64\svchost.exe PID 4912
+```
+
+Both executable launches record `WriteProcessMemory` and `SetThreadContext` against their respective surrogate processes. Both also write the Run and RunOnce values and create the same scheduled task:
+
+```text
+schtasks /Create /TN NvSvc /TR "\"C:\ProgramData\NVIDIA Corporation\NvSvc\Tax_Notice_23665.exe\"" /SC ONLOGON /RL HIGHEST /F
+```
+
+These runs confirm that full-EXE execution preserves the expected host-and-carrier relationship and produces a functional persistence command.
+
+### Direct-DLL execution
+
+In [`260908-zwr5naybjb/behavioral2`](https://tria.ge/260908-zwr5naybjb/behavioral2), Triage invokes the inner carrier directly:
+
+```text
+rundll32.exe C:\Users\Admin\AppData\Local\Temp\nvdahelperremote.dll,#1
+```
+
+The `rundll32.exe` process launches a 32-bit `svchost.exe`, but the persistence routine now treats `C:\Windows\System32\rundll32.exe` as its host executable. It copies `rundll32.exe` into the NvSvc directory and attempts to find `nvdaHelperRemote.dll` beside the original System32 host, where the DLL does not exist.
+
+The resulting Run, RunOnce, and scheduled-task entries target only:
+
+```text
+C:\ProgramData\NVIDIA Corporation\NvSvc\rundll32.exe
+```
+
+The original DLL path and `,#1` export argument are not preserved. When Triage executes the persisted copy, it exits after approximately 16 milliseconds without loading PackClient.
+
+This is a broken replay caused by direct invocation of the inner DLL. It is not a second PackClient variant or an alternative functional persistence design.
+
+### Network results
+
+All three one-hour executions established enough TCP connectivity to transmit valid Launcher greetings, but the server returned no PackClient application data:
+
+| Task and mode | Complete `PLH1` greetings | Server application bytes | Result |
+| --- | ---: | ---: | --- |
+| `260908-zwr5naybjb/behavioral1`, full EXE | 492 | 0 | No `PLC1`, `PLA1`, `PLK1`, Core, or plugin delivery |
+| `260908-zwr5naybjb/behavioral2`, direct DLL | 501 | 0 | No `PLC1`, `PLA1`, `PLK1`, Core, or plugin delivery |
+| `260909-abma8sab28/behavioral1`, full EXE repeat | 283 | 0 | No `PLC1`, `PLA1`, `PLK1`, Core, or plugin delivery |
+
+The later non-response does not negate the successful July sessions. It establishes only that the endpoint accepted repeated connections while returning no PackClient application payload during these September runs.
+
+### Memory results
+
+The `260908-zwr5naybjb` report contains 18 memory artifacts. Thirteen are 294,912-byte mapped PE images with the recovered Launcher's timestamp, image size, PDB identity, and protocol markers; the remaining five are surrounding or non-PE allocations.
+
+The `260909-abma8sab28` report contains 12 memory artifacts. Nine are 294,912-byte mapped images matching the same Launcher layout, while three are adjacent or partial allocations.
+
+Every recovered memory artifact belongs to the Launcher or its surrounding allocations. Neither run produced a completed PLK1 transfer, independently identifiable Core image, plugin DLL, or new PackClient stage.
+
+## Runtime conclusions
+
+The local dumps establish that the reconstructed package, A, and Launcher B were resident inside bare 32-bit `svchost.exe` surrogates. Public and controlled Triage evidence establishes remote package placement followed by primary-thread context hijacking.
+
+The historical July sessions preserve successful authentication, Core delivery, commands, and screenshot traffic. The September runs instead establish the repeatable full-EXE persistence path, explain the broken direct-DLL `rundll32.exe` artifact, and show repeated `PLH1` transmission without a server response.
+
+Supporting artifact identities are listed in [Evidence](evidence.md). Remaining runtime uncertainties are collected in [Scope and limitations](limitations.md).
