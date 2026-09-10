@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Passively decode a raw PackClient Launcher byte stream."""
+"""Passively decode a raw PackClient byte stream."""
 
 from __future__ import annotations
 
@@ -11,7 +11,13 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from tools.packclient_proto import ProtocolError, StreamDecoder  # noqa: E402
+from tools.packclient_proto import (  # noqa: E402
+    PHASE_AUTO,
+    PHASE_CORE,
+    PHASE_LAUNCHER,
+    ProtocolError,
+    StreamDecoder,
+)
 
 
 def _hex_key(value: str, label: str) -> bytes:
@@ -52,6 +58,15 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="do not attempt optional raw-block LZ4 decoding",
     )
+    parser.add_argument(
+        "--phase",
+        choices=(PHASE_AUTO, PHASE_LAUNCHER, PHASE_CORE),
+        default=PHASE_LAUNCHER,
+        help="protocol phase; auto infers from validated message structure",
+    )
+    core_psk_group = parser.add_mutually_exclusive_group()
+    core_psk_group.add_argument("--core-psk-text", help="literal UTF-8 Core auth_psk")
+    core_psk_group.add_argument("--core-psk-hex", help="hex-encoded Core auth_psk")
     return parser.parse_args()
 
 
@@ -70,6 +85,19 @@ def main() -> int:
                 raise ProtocolError("--psk-hex must decode to a nonempty value")
         else:
             psk = None
+        if args.core_psk_text is not None:
+            core_psk = args.core_psk_text.encode("utf-8")
+            if not core_psk:
+                raise ProtocolError("--core-psk-text must be nonempty")
+        elif args.core_psk_hex is not None:
+            try:
+                core_psk = bytes.fromhex(args.core_psk_hex)
+            except ValueError as exc:
+                raise ProtocolError("Core auth_psk must be hexadecimal") from exc
+            if not core_psk:
+                raise ProtocolError("--core-psk-hex must decode to a nonempty value")
+        else:
+            core_psk = None
         aes_key = _hex_key(args.aes_key_hex, "AES key") if args.aes_key_hex else None
         hmac_key = (
             _hex_key(args.envelope_hmac_key_hex, "envelope HMAC key")
@@ -82,7 +110,9 @@ def main() -> int:
             use_default_psk=args.use_default_psk,
             aes_key=aes_key,
             envelope_hmac_key=hmac_key,
+            core_psk=core_psk,
             decode_lz4=not args.no_lz4,
+            phase=args.phase,
         ).decode(data)
     except (OSError, ValueError, ProtocolError) as exc:
         report = {"status": "rejected/malformed", "error": str(exc)}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PackClient Launcher transport, authentication, envelope, and PLK1 helpers."""
+"""PackClient transport, authentication, delivery, and Core protocol helpers."""
 
 from __future__ import annotations
 
@@ -17,6 +17,10 @@ BODY_LENGTH_MASK = 0x003FFFFF
 MAX_BODY_LENGTH = BODY_LENGTH_MASK
 TYPE_PLAINTEXT = 0x15
 TYPE_ENCRYPTED = 0x16
+PHASE_AUTO = "auto"
+PHASE_LAUNCHER = "launcher"
+PHASE_CORE = "core"
+PROTOCOL_PHASES = frozenset((PHASE_AUTO, PHASE_LAUNCHER, PHASE_CORE))
 DIRECTION_CLIENT_TO_SERVER = "client-to-server"
 DIRECTION_SERVER_TO_CLIENT = "server-to-client"
 TRANSPORT_DIRECTIONS = frozenset(
@@ -25,6 +29,25 @@ TRANSPORT_DIRECTIONS = frozenset(
 DEFAULT_LAUNCHER_PSK = b"pack-launch-dev-psk"
 PLK1_HEADER_SIZE = 0x38
 MAX_PLK1_SIZE = 0x08000000
+CORE_MESSAGE_TYPES = frozenset((1, 2, 3, *range(10, 24)))
+CORE_MESSAGE_NAMES = {
+    1: "core-type-1",
+    2: "core-type-2",
+    3: "core-structured-message",
+    10: "core-information-request",
+    11: "core-host-inventory",
+    17: "core-type-17",
+    18: "core-pv10-preview",
+}
+CORE_COMMAND_MARKERS = (
+    (b"SYS|Q|EXT|STARTUP|PROBE|", "startup-probe"),
+    (b"SYS|R|EXT|STARTUP|OK|", "startup-response"),
+    (b"TLM|U|KTL|OFFLINE|", "offline-keylogger-status"),
+    (b"SCR|PREVIEW|ENABLE|", "preview-enable"),
+    (b"SCR|PREVIEW|REQ", "preview-request"),
+    (b"SCR|PREVIEW|ACK|", "preview-acknowledgement"),
+    (b"INP|HELLO|", "client-hello"),
+)
 
 
 class ProtocolError(ValueError):
@@ -249,6 +272,138 @@ class EnvelopeResult:
     plaintext_payload: bytes | None
 
 
+@dataclass(frozen=True)
+class CoreEnvelopeResult:
+    metadata: dict[str, Any]
+    inner_message_type: int | None
+    inner_payload: bytes | None
+
+
+@dataclass(frozen=True)
+class PV10Result:
+    metadata: dict[str, Any]
+    jpeg: bytes
+
+
+@dataclass
+class ProtocolPhaseContext:
+    """Flow-wide protocol phase shared by both TCP directions."""
+
+    phase: str | None = None
+
+
+def derive_core_keys(auth_psk: bytes) -> tuple[bytes, bytes]:
+    """Derive Core's independent AES-256 and HMAC-SHA-256 keys."""
+    if not auth_psk:
+        raise ProtocolError("Core auth_psk must be nonempty")
+    aes_key = hashlib.sha256(b"PACKAPP|AES256|v1|" + auth_psk).digest()
+    hmac_key = hashlib.sha256(b"PACKAPP|HMAC|v1|" + auth_psk).digest()
+    return aes_key, hmac_key
+
+
+def parse_core_envelope(
+    envelope: bytes,
+    *,
+    auth_psk: bytes | None = None,
+) -> CoreEnvelopeResult:
+    """Parse and optionally authenticate/decrypt a Core type-0x16 envelope."""
+    if len(envelope) < 0x35:
+        raise ProtocolError("Core type 0x16 envelope is shorter than 0x35 bytes")
+    version = envelope[0]
+    if version != 1:
+        raise ProtocolError("Core type 0x16 envelope version must be 1")
+    iv = envelope[1:17]
+    ciphertext_length = struct.unpack_from("<I", envelope, 17)[0]
+    expected_length = ciphertext_length + 0x35
+    if len(envelope) != expected_length:
+        raise ProtocolError(
+            "Core type 0x16 envelope length mismatch: "
+            f"declared {ciphertext_length}, total must be {expected_length}, "
+            f"got {len(envelope)}"
+        )
+    if ciphertext_length == 0:
+        raise ProtocolError("Core type 0x16 ciphertext is empty")
+    if ciphertext_length % 16 != 0:
+        raise ProtocolError("Core type 0x16 ciphertext length is not AES block-aligned")
+    ciphertext_end = 0x15 + ciphertext_length
+    ciphertext = envelope[0x15:ciphertext_end]
+    supplied_tag = envelope[ciphertext_end:]
+    metadata: dict[str, Any] = {
+        "status": "parsed",
+        "format": "Core (little-endian length)",
+        "version": version,
+        "ciphertext_length": ciphertext_length,
+        "hmac_status": "unverifiable: Core auth_psk absent",
+        "decryption_status": "unavailable: Core auth_psk absent",
+    }
+    if auth_psk is None:
+        return CoreEnvelopeResult(metadata, None, None)
+    aes_key, hmac_key = derive_core_keys(auth_psk)
+    expected_tag = hmac.new(
+        hmac_key, envelope[:ciphertext_end], hashlib.sha256
+    ).digest()
+    if not hmac.compare_digest(expected_tag, supplied_tag):
+        raise ProtocolError("Core type 0x16 envelope HMAC-SHA-256 verification failed")
+    metadata["hmac_status"] = "verified"
+    plaintext = aes256_cbc_decrypt_padded(aes_key, iv, ciphertext)
+    if len(plaintext) < 4:
+        raise ProtocolError("decrypted Core type 0x16 message is shorter than its type")
+    inner_type = struct.unpack_from("<I", plaintext)[0]
+    if inner_type not in CORE_MESSAGE_TYPES or inner_type == TYPE_ENCRYPTED:
+        raise ProtocolError(
+            f"decrypted Core type 0x16 inner type {_hex_u32(inner_type)} is invalid"
+        )
+    metadata["decryption_status"] = "verified"
+    metadata["inner_type"] = _hex_u32(inner_type)
+    metadata["plaintext_payload_length"] = len(plaintext) - 4
+    return CoreEnvelopeResult(metadata, inner_type, plaintext[4:])
+
+
+def parse_pv10(payload: bytes) -> PV10Result:
+    """Validate a Core PV10 payload and return its JPEG bytes."""
+    if len(payload) < 8:
+        raise ProtocolError("PV10 payload is shorter than 8 bytes")
+    if payload[:4] != b"PV10":
+        raise ProtocolError("Core type 18 payload does not begin with PV10")
+    jpeg_length = struct.unpack_from("<I", payload, 4)[0]
+    if jpeg_length != len(payload) - 8:
+        raise ProtocolError(
+            "PV10 JPEG length mismatch: "
+            f"declared {jpeg_length}, got {len(payload) - 8}"
+        )
+    jpeg = payload[8:]
+    if len(jpeg) < 4 or not jpeg.startswith(b"\xFF\xD8"):
+        raise ProtocolError("PV10 data does not begin with a JPEG SOI marker")
+    if not jpeg.endswith(b"\xFF\xD9"):
+        raise ProtocolError("PV10 data does not end with a JPEG EOI marker")
+    return PV10Result(
+        {
+            "kind": "PV10",
+            "status": "verified",
+            "jpeg_length": len(jpeg),
+            "jpeg_sha256": hashlib.sha256(jpeg).hexdigest(),
+            "jfif": jpeg[6:11] == b"JFIF\x00" if len(jpeg) >= 11 else False,
+        },
+        jpeg,
+    )
+
+
+def classify_core_payload(message_type: int, payload: bytes) -> dict[str, Any]:
+    """Return payload-safe metadata for an observed or valid Core message."""
+    if message_type not in CORE_MESSAGE_TYPES:
+        raise ProtocolError(f"unsupported Core message type {_hex_u32(message_type)}")
+    row: dict[str, Any] = {
+        "kind": CORE_MESSAGE_NAMES.get(message_type, f"core-type-{message_type}"),
+        "message_type": message_type,
+        "payload_length": len(payload),
+    }
+    for marker, name in CORE_COMMAND_MARKERS:
+        if marker in payload:
+            row["command"] = name
+            break
+    return row
+
+
 def parse_envelope(
     envelope: bytes,
     *,
@@ -424,13 +579,20 @@ class PLK1Reassembler:
             "final": self.result,
         }
 
+    @property
+    def wire(self) -> bytes:
+        return bytes(self._wire)
+
     def _finish(self) -> dict[str, Any]:
         wire = bytes(self._wire)
+        wire_digest = hashlib.sha256(wire).hexdigest()
         expected_size = self.header["expected_plaintext_size"]
         if self.header["lz4_enabled"]:
             if not self.decode_lz4:
                 return {
                     "status": "unverifiable: LZ4 decoding disabled",
+                    "wire_size": len(wire),
+                    "wire_sha256": wire_digest,
                     "plaintext_size_status": "unverifiable",
                     "sha256_status": "unverifiable",
                 }
@@ -439,6 +601,8 @@ class PLK1Reassembler:
             except ModuleNotFoundError:
                 return {
                     "status": "unverifiable: optional LZ4 dependency absent",
+                    "wire_size": len(wire),
+                    "wire_sha256": wire_digest,
                     "plaintext_size_status": "unverifiable",
                     "sha256_status": "unverifiable",
                 }
@@ -454,6 +618,8 @@ class PLK1Reassembler:
         self.plaintext = plaintext
         return {
             "status": "verified",
+            "wire_size": len(wire),
+            "wire_sha256": wire_digest,
             "plaintext_size": len(plaintext),
             "plaintext_size_status": "verified",
             "sha256": digest,
@@ -462,7 +628,7 @@ class PLK1Reassembler:
 
 
 class StreamDecoder:
-    """Stateful decoder for one ordered Launcher transport stream."""
+    """Stateful decoder for one ordered Launcher or Core transport stream."""
 
     def __init__(
         self,
@@ -473,7 +639,10 @@ class StreamDecoder:
         use_default_psk: bool = False,
         aes_key: bytes | None = None,
         envelope_hmac_key: bytes | None = None,
+        core_psk: bytes | None = None,
         decode_lz4: bool = True,
+        phase: str = PHASE_LAUNCHER,
+        phase_context: ProtocolPhaseContext | None = None,
     ):
         if handshake_context is not None and direction not in TRANSPORT_DIRECTIONS:
             raise ProtocolError(
@@ -487,9 +656,20 @@ class StreamDecoder:
         _validate_32_byte_key("envelope HMAC key", envelope_hmac_key)
         self.aes_key = aes_key
         self.envelope_hmac_key = envelope_hmac_key
+        if phase not in PROTOCOL_PHASES:
+            raise ProtocolError(f"unsupported protocol phase {phase!r}")
+        if core_psk is not None and not core_psk:
+            raise ProtocolError("Core auth_psk must be nonempty")
+        self.core_psk = core_psk
+        self.phase = phase
+        self.phase_context = phase_context or ProtocolPhaseContext(
+            None if phase == PHASE_AUTO else phase
+        )
         self.decode_lz4 = decode_lz4
         self._reassembler: PLK1Reassembler | None = None
         self._reassemblies: list[dict[str, Any]] = []
+        self._completed_plk1: list[dict[str, Any]] = []
+        self._completed_pv10: list[PV10Result] = []
 
     def decode(self, data: bytes) -> dict[str, Any]:
         frames: list[dict[str, Any]] = []
@@ -524,7 +704,44 @@ class StreamDecoder:
             rows.append(self._reassembler.snapshot())
         return rows
 
+    def pop_completed_plk1(self) -> list[dict[str, Any]]:
+        completed, self._completed_plk1 = self._completed_plk1, []
+        return completed
+
+    def pop_completed_pv10(self) -> list[PV10Result]:
+        completed, self._completed_pv10 = self._completed_pv10, []
+        return completed
+
+    def _effective_phase(self, frame: OuterFrame) -> str:
+        if self.phase != PHASE_AUTO:
+            return self.phase
+        if self.phase_context.phase is not None:
+            return self.phase_context.phase
+        if frame.message_type == TYPE_ENCRYPTED:
+            if len(frame.payload) < 0x35:
+                raise ProtocolError(
+                    "type 0x16 phase cannot be inferred from a truncated envelope",
+                    offset=frame.offset,
+                )
+            declared_be = struct.unpack_from(">I", frame.payload, 17)[0]
+            declared_le = struct.unpack_from("<I", frame.payload, 17)[0]
+            actual = len(frame.payload) - 0x35
+            launcher = declared_be == actual
+            core = declared_le == actual
+            if launcher == core:
+                raise ProtocolError(
+                    "type 0x16 phase is ambiguous; select launcher or core explicitly",
+                    offset=frame.offset,
+                )
+            self.phase_context.phase = PHASE_LAUNCHER if launcher else PHASE_CORE
+        elif frame.message_type in CORE_MESSAGE_TYPES and frame.message_type != TYPE_PLAINTEXT:
+            self.phase_context.phase = PHASE_CORE
+        else:
+            self.phase_context.phase = PHASE_LAUNCHER
+        return self.phase_context.phase
+
     def _decode_frame(self, frame: OuterFrame) -> dict[str, Any]:
+        phase = self._effective_phase(frame)
         row: dict[str, Any] = {
             "offset": frame.offset,
             "end_offset": frame.end_offset,
@@ -533,7 +750,10 @@ class StreamDecoder:
             "body_length": frame.body_length,
             "message_type": _hex_u32(frame.message_type),
             "status": "parsed",
+            "phase": phase,
         }
+        if phase == PHASE_CORE:
+            return self._decode_core_frame(frame, row)
         if frame.message_type == TYPE_PLAINTEXT:
             payload = frame.payload
             row["payload_status"] = "available: plaintext type 0x15"
@@ -560,13 +780,49 @@ class StreamDecoder:
             self._decode_payload(payload, row)
         return row
 
+    def _decode_core_frame(
+        self, frame: OuterFrame, row: dict[str, Any]
+    ) -> dict[str, Any]:
+        if frame.message_type == TYPE_ENCRYPTED:
+            result = parse_core_envelope(frame.payload, auth_psk=self.core_psk)
+            row["envelope"] = result.metadata
+            if result.inner_message_type is None or result.inner_payload is None:
+                row["payload_status"] = "unverifiable/unavailable: Core auth_psk absent"
+                return row
+            message_type = result.inner_message_type
+            payload = result.inner_payload
+            row["payload_status"] = "available: authenticated/decrypted Core message"
+        else:
+            message_type = frame.message_type
+            payload = frame.payload
+            row["payload_status"] = "available: plaintext Core message"
+        row["plaintext_payload_length"] = len(payload)
+        row["core"] = classify_core_payload(message_type, payload)
+        if message_type == 18:
+            pv10 = parse_pv10(payload)
+            row["pv10"] = pv10.metadata
+            self._completed_pv10.append(pv10)
+        return row
+
     def _decode_payload(self, payload: bytes, row: dict[str, Any]) -> None:
         if self._reassembler is not None:
             chunk_state = self._reassembler.add_chunk(payload)
             row["plk1_chunk"] = chunk_state
             if self._reassembler.complete:
+                if self._reassembler.plaintext is not None:
+                    self._completed_plk1.append(
+                        {
+                            "header": dict(self._reassembler.header),
+                            "final": dict(self._reassembler.result or {}),
+                            "wire": self._reassembler.wire,
+                            "plaintext": self._reassembler.plaintext,
+                            "chunk_count": self._reassembler.expected_sequence,
+                        }
+                    )
                 self._reassemblies.append(self._reassembler.snapshot())
                 self._reassembler = None
+                if self.phase == PHASE_AUTO:
+                    self.phase_context.phase = PHASE_CORE
             return
         magic = payload[:4]
         if magic == b"PLH1":

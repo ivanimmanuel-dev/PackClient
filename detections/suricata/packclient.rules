@@ -1,7 +1,18 @@
-# Local regression rules for plaintext PackClient Launcher handshake markers.
+# Local regression rules for PackClient Launcher and observed plaintext Core traffic.
 
 alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:"MALWARE PackClient PLH1 client hello candidate"; flow:established,to_server,only_stream; content:"|24 00 40 5A 15 00 00 00 50 4C 48 31 01 00|"; classtype:trojan-activity; sid:4202601; rev:2;)
 
 alert tcp $EXTERNAL_NET any -> $HOME_NET any (msg:"MALWARE PackClient PLC1 server challenge candidate"; flow:established,to_client,only_stream; content:"|1C 00 40 5A 15 00 00 00 50 4C 43 31 01 00|"; classtype:trojan-activity; sid:4202602; rev:2;)
 
 alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:"MALWARE PackClient PLA1 client authentication candidate"; flow:established,to_server,only_stream; content:"|2C 00 40 5A 15 00 00 00 50 4C 41 31 01 00|"; classtype:trojan-activity; sid:4202603; rev:2;)
+
+# Correlated server-side Launcher delivery: a PLC1 challenge followed by a
+# version 1 or 2 PLK1 header on the same reassembled stream.
+alert tcp $EXTERNAL_NET any -> $HOME_NET any (msg:"MALWARE PackClient Launcher challenge-to-delivery progression"; flow:established,to_client,only_stream; content:"|1C 00 40 5A 15 00 00 00 50 4C 43 31 01 00|"; content:"|3C 00 40 5A 15 00 00 00 50 4C 4B 31|"; distance:0; byte_test:2,>=,1,0,relative,little; byte_test:2,<=,2,0,relative,little; classtype:trojan-activity; sid:4202614; rev:2;)
+
+# Observed Core startup response, including its client metadata prefix.
+alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:"MALWARE PackClient Core startup response"; flow:established,to_server,only_stream; content:"|FA CE 01 10|"; content:"SYS|7C|R|7C|EXT|7C|STARTUP|7C|OK|7C|tags="; distance:0; within:96; flowbits:set,packclient.core.started; classtype:trojan-activity; sid:4202622; rev:2;)
+
+# A PV10 JPEG after the startup response ties the public screenshot marker to an
+# established Core flow without duplicating a standalone PV10 signature.
+alert tcp $HOME_NET any -> $EXTERNAL_NET any (msg:"MALWARE PackClient Core startup and PV10 screenshot response"; flow:established,to_server,only_stream; flowbits:isset,packclient.core.started; content:"|12 00 00 00 50 56 31 30|"; content:"|FF D8 FF|"; distance:4; within:7; classtype:trojan-activity; sid:4202634; rev:4;)

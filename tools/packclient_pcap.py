@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PCAP/PCAPNG parsing and TCP reassembly for PackClient Launcher traffic."""
+"""PCAP/PCAPNG parsing and TCP reassembly for PackClient traffic."""
 
 from __future__ import annotations
 
@@ -18,6 +18,8 @@ from tools.packclient_proto import (
     FRAME_PREFIX_MASK,
     BODY_LENGTH_MASK,
     HandshakeContext,
+    PHASE_AUTO,
+    ProtocolPhaseContext,
     ProtocolError,
     StreamDecoder,
     TYPE_ENCRYPTED,
@@ -95,6 +97,31 @@ class ReassembledDirection:
     duplicate_segments: int
     retransmitted_bytes: int
     error: str | None
+
+
+@dataclass(frozen=True)
+class PLK1Artifact:
+    plaintext: bytes
+    wire: bytes
+    header: dict[str, Any]
+    final: dict[str, Any]
+    chunk_count: int
+    flow_id: str
+    source: str
+    destination: str
+    direction: str
+    frames: tuple[dict[str, Any], ...]
+
+
+@dataclass(frozen=True)
+class PV10Artifact:
+    jpeg: bytes
+    metadata: dict[str, Any]
+    flow_id: str
+    source: str
+    destination: str
+    direction: str
+    frame: dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -488,15 +515,22 @@ def reassemble_tcp_direction(segments: Iterable[TCPSegment]) -> ReassembledDirec
     )
 
 
-def _event_origin(origins: tuple[OriginSpan, ...], start: int, end: int) -> ByteOrigin:
+def _event_origins(
+    origins: tuple[OriginSpan, ...], start: int, end: int
+) -> tuple[ByteOrigin, ...]:
     # One span per contributing segment, not one Python object per payload byte.
     index = max(0, bisect_right(origins, start, key=lambda span: span.start) - 1)
-    selected = []
+    selected: list[ByteOrigin] = []
     while index < len(origins) and origins[index].start < end:
         span = origins[index]
         if span.end > start:
             selected.append(span.origin)
         index += 1
+    return tuple(dict.fromkeys(selected))
+
+
+def _event_origin(origins: tuple[OriginSpan, ...], start: int, end: int) -> ByteOrigin:
+    selected = _event_origins(origins, start, end)
     known = [origin for origin in selected if origin.timestamp is not None]
     if known:
         return min(known, key=lambda item: (item.timestamp, item.packet_index))
@@ -512,6 +546,7 @@ def _extract_frames(reassembled: ReassembledDirection) -> list[dict[str, Any]]:
     while offset < len(data):
         available = len(data) - offset
         if available < 4:
+            contributing = _event_origins(reassembled.origins, offset, len(data))
             origin = _event_origin(reassembled.origins, offset, len(data))
             events.append({
                 "status": "incomplete",
@@ -520,10 +555,14 @@ def _extract_frames(reassembled: ReassembledDirection) -> list[dict[str, Any]]:
                 "available_bytes": available,
                 "timestamp": origin.timestamp,
                 "packet_index": origin.packet_index,
+                "packet_indexes": sorted(
+                    {item.packet_index for item in contributing if item.packet_index >= 0}
+                ),
             })
             break
         frame_word = struct.unpack_from("<I", data, offset)[0]
         if frame_word & FRAME_PREFIX_MASK != FRAME_PREFIX:
+            contributing = _event_origins(reassembled.origins, offset, offset + 4)
             origin = _event_origin(reassembled.origins, offset, offset + 4)
             events.append({
                 "status": "rejected/malformed",
@@ -531,12 +570,16 @@ def _extract_frames(reassembled: ReassembledDirection) -> list[dict[str, Any]]:
                 "stream_offset": offset,
                 "timestamp": origin.timestamp,
                 "packet_index": origin.packet_index,
+                "packet_indexes": sorted(
+                    {item.packet_index for item in contributing if item.packet_index >= 0}
+                ),
             })
             break
         body_length = frame_word & BODY_LENGTH_MASK
         try:
             validate_body_length(body_length)
         except ProtocolError as exc:
+            contributing = _event_origins(reassembled.origins, offset, offset + 4)
             origin = _event_origin(reassembled.origins, offset, offset + 4)
             events.append({
                 "status": "rejected/malformed",
@@ -544,10 +587,15 @@ def _extract_frames(reassembled: ReassembledDirection) -> list[dict[str, Any]]:
                 "stream_offset": offset,
                 "timestamp": origin.timestamp,
                 "packet_index": origin.packet_index,
+                "packet_indexes": sorted(
+                    {item.packet_index for item in contributing if item.packet_index >= 0}
+                ),
             })
             break
         total = 4 + body_length
-        origin = _event_origin(reassembled.origins, offset, min(len(data), offset + total))
+        event_end = min(len(data), offset + total)
+        contributing = _event_origins(reassembled.origins, offset, event_end)
+        origin = _event_origin(reassembled.origins, offset, event_end)
         if available < total:
             events.append({
                 "status": "incomplete",
@@ -559,6 +607,9 @@ def _extract_frames(reassembled: ReassembledDirection) -> list[dict[str, Any]]:
                 "available_bytes": available,
                 "timestamp": origin.timestamp,
                 "packet_index": origin.packet_index,
+                "packet_indexes": sorted(
+                    {item.packet_index for item in contributing if item.packet_index >= 0}
+                ),
             })
             break
         frame = data[offset : offset + total]
@@ -578,6 +629,9 @@ def _extract_frames(reassembled: ReassembledDirection) -> list[dict[str, Any]]:
             "classification_hint": classification,
             "timestamp": origin.timestamp,
             "packet_index": origin.packet_index,
+            "packet_indexes": sorted(
+                {item.packet_index for item in contributing if item.packet_index >= 0}
+            ),
             "frame": frame,
         })
         offset += total
@@ -635,10 +689,14 @@ def analyze_capture(
     use_default_psk: bool = False,
     aes_key: bytes | None = None,
     envelope_hmac_key: bytes | None = None,
+    core_psk: bytes | None = None,
     decode_lz4: bool = True,
     include_all_tcp: bool = False,
+    phase: str = PHASE_AUTO,
+    plk1_artifacts: list[PLK1Artifact] | None = None,
+    pv10_artifacts: list[PV10Artifact] | None = None,
 ) -> dict[str, Any]:
-    """Analyze a capture and return per-flow Launcher protocol metadata."""
+    """Analyze a capture and return per-flow Launcher/Core protocol metadata."""
     capture_format, packets = parse_capture(data)
     flow_segments: dict[tuple[Endpoint, Endpoint], dict[Endpoint, list[TCPSegment]]] = {}
     tcp_packet_count = 0
@@ -737,6 +795,7 @@ def analyze_capture(
             flow["server_endpoint"] = str(server)
             flow["direction_basis"] = "analyst override" if override else "protocol evidence"
             context = HandshakeContext()
+            phase_context = ProtocolPhaseContext(None if phase == PHASE_AUTO else phase)
             decoders = {
                 client: StreamDecoder(
                     direction=DIRECTION_CLIENT_TO_SERVER,
@@ -745,7 +804,10 @@ def analyze_capture(
                     use_default_psk=use_default_psk,
                     aes_key=aes_key,
                     envelope_hmac_key=envelope_hmac_key,
+                    core_psk=core_psk,
                     decode_lz4=decode_lz4,
+                    phase=phase,
+                    phase_context=phase_context,
                 ),
                 server: StreamDecoder(
                     direction=DIRECTION_SERVER_TO_CLIENT,
@@ -754,17 +816,24 @@ def analyze_capture(
                     use_default_psk=use_default_psk,
                     aes_key=aes_key,
                     envelope_hmac_key=envelope_hmac_key,
+                    core_psk=core_psk,
                     decode_lz4=decode_lz4,
+                    phase=phase,
+                    phase_context=phase_context,
                 ),
             }
         else:
+            phase_context = ProtocolPhaseContext(None if phase == PHASE_AUTO else phase)
             decoders = {
                 endpoint: StreamDecoder(
                     psk=psk,
                     use_default_psk=use_default_psk,
                     aes_key=aes_key,
                     envelope_hmac_key=envelope_hmac_key,
+                    core_psk=core_psk,
                     decode_lz4=decode_lz4,
+                    phase=phase,
+                    phase_context=phase_context,
                 )
                 for endpoint in key
             }
@@ -788,6 +857,9 @@ def analyze_capture(
             ))
             ordered.append((source, event))
             positions[source] += 1
+        transfer_frames: dict[Endpoint, list[dict[str, Any]]] = {
+            endpoint: [] for endpoint in key
+        }
         for source, event in ordered:
             destination = key[1] if source == key[0] else key[0]
             if client is None:
@@ -815,8 +887,56 @@ def analyze_capture(
                 row["classification"] = (
                     metadata.get("handshake", {}).get("kind")
                     or metadata.get("plk1_header", {}).get("kind")
+                    or metadata.get("pv10", {}).get("kind")
+                    or metadata.get("core", {}).get("kind")
                     or ("type-0x16-envelope" if "envelope" in metadata else "unclassified")
                 )
+                provenance = {
+                    "stream_offset": row["stream_offset"],
+                    "frame_length": row["frame_length"],
+                    "packet_indexes": row.get("packet_indexes", []),
+                    "timestamp": _format_timestamp(row["timestamp"]),
+                }
+                if "plk1_header" in metadata:
+                    transfer_frames[source] = [provenance]
+                elif "plk1_chunk" in metadata:
+                    transfer_frames[source].append(
+                        {
+                            **provenance,
+                            "sequence": metadata["plk1_chunk"]["sequence"],
+                            "chunk_length": metadata["plk1_chunk"]["chunk_length"],
+                        }
+                    )
+                for artifact in decoders[source].pop_completed_plk1():
+                    if plk1_artifacts is not None:
+                        plk1_artifacts.append(
+                            PLK1Artifact(
+                                plaintext=artifact["plaintext"],
+                                wire=artifact["wire"],
+                                header=artifact["header"],
+                                final=artifact["final"],
+                                chunk_count=artifact["chunk_count"],
+                                flow_id=flow_id,
+                                source=str(source),
+                                destination=str(destination),
+                                direction=direction,
+                                frames=tuple(transfer_frames[source]),
+                            )
+                        )
+                    transfer_frames[source] = []
+                for artifact in decoders[source].pop_completed_pv10():
+                    if pv10_artifacts is not None:
+                        pv10_artifacts.append(
+                            PV10Artifact(
+                                jpeg=artifact.jpeg,
+                                metadata=artifact.metadata,
+                                flow_id=flow_id,
+                                source=str(source),
+                                destination=str(destination),
+                                direction=direction,
+                                frame=provenance,
+                            )
+                        )
             elif event["status"] == "incomplete":
                 flow["status"] = "partial"
             else:
@@ -895,7 +1015,8 @@ def format_timeline(report: dict[str, Any]) -> str:
             decoded = row["decoder"]
             summary = (
                 f"len={row['frame_length']} body={row['body_length']} "
-                f"type=0x{row['message_type']:08X} class={row['classification']}"
+                f"type=0x{row['message_type']:08X} phase={decoded['phase']} "
+                f"class={row['classification']}"
             )
             handshake = decoded.get("handshake")
             if handshake and handshake["kind"] == "PLA1":
@@ -924,6 +1045,15 @@ def format_timeline(report: dict[str, Any]) -> str:
                 )
                 if "inner_type" in envelope:
                     summary += f" inner_type={envelope['inner_type']}"
+            core = decoded.get("core")
+            if core and "command" in core:
+                summary += f" command={core['command']}"
+            pv10 = decoded.get("pv10")
+            if pv10:
+                summary += (
+                    f" jpeg={pv10['jpeg_length']} "
+                    f"jpeg_sha256={pv10['jpeg_sha256']}"
+                )
             lines.append(f"  {stamp} {row['direction']} {summary}")
         if flow.get("error") and not flow["timeline"]:
             lines.append(f"  rejected: {flow['error']}")

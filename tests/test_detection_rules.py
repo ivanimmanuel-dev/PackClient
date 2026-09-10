@@ -146,10 +146,43 @@ class YaraRuleTests(unittest.TestCase):
         ])
         self.assertTrue(rules.match(data=self.pe_header() + markers))
 
+    def test_core_rule_requires_pe_exports_and_plugin_threshold(self):
+        import yara
+        rules = yara.compile(filepath=str(ROOT / "detections/yara/packclient_core.yar"))
+        core_markers = [
+            b"PackClientCore.dll",
+            b"PackClientDll_Run",
+            b"PackClient_AllocStoredPluginImageW",
+        ]
+        plugin_markers = [
+            b"PackMonitorClient.PluginStore.v1",
+            b"PackPlugin_GetFeatureId",
+            b"PackPlugin_BrowserMgr_TryHandleExtRemote",
+        ]
+        markers = b"\0".join(core_markers + plugin_markers)
+        header = self.pe_header()
+        self.assertTrue(rules.match(data=header + markers))
+        self.assertFalse(rules.match(data=markers))
+        self.assertFalse(rules.match(data=header + b"\0".join(core_markers[:2] + plugin_markers)))
+        self.assertFalse(rules.match(data=header + b"\0".join(core_markers + plugin_markers[:2])))
+
+    def test_core_rule_accepts_wide_registry_plugin_marker(self):
+        import yara
+        rules = yara.compile(filepath=str(ROOT / "detections/yara/packclient_core.yar"))
+        markers = b"\0".join([
+            b"PackClientCore.dll",
+            b"PackClientDll_Run",
+            b"PackClient_AllocStoredPluginImageW",
+            b"PackMonitorClient.PluginStore.v1",
+            b"PackPlugin_GetFeatureId",
+            "PackPlugin.Registry.dll".encode("utf-16le"),
+        ])
+        self.assertTrue(rules.match(data=self.pe_header() + markers))
+
 
 @unittest.skipUnless(SURICATA, "optional Suricata engine absent")
 class SuricataRuleTests(unittest.TestCase):
-    def alert_ids(self, client_parts, server_data):
+    def alert_ids_for_events(self, events):
         packets = []
         client_seq, server_seq = 1000, 5000
 
@@ -164,12 +197,15 @@ class SuricataRuleTests(unittest.TestCase):
         client_seq += 1
         server_seq += 1
         send(b"", True, client_seq, server_seq, 0x10)
-        for payload in client_parts:
-            send(payload, True, client_seq, server_seq, 0x18)
-            client_seq += len(payload)
-            send(b"", False, server_seq, client_seq, 0x10)
-        send(server_data, False, server_seq, client_seq, 0x18)
-        server_seq += len(server_data)
+        for client_to_server, payload in events:
+            if client_to_server:
+                send(payload, True, client_seq, server_seq, 0x18)
+                client_seq += len(payload)
+                send(b"", False, server_seq, client_seq, 0x10)
+            else:
+                send(payload, False, server_seq, client_seq, 0x18)
+                server_seq += len(payload)
+                send(b"", True, client_seq, server_seq, 0x10)
         send(b"", True, client_seq, server_seq, 0x11)
         send(b"", False, server_seq, client_seq + 1, 0x11)
         send(b"", True, client_seq + 1, server_seq + 1, 0x10)
@@ -191,6 +227,11 @@ class SuricataRuleTests(unittest.TestCase):
             return {row["alert"]["signature_id"] for line in eve.read_text().splitlines()
                     if (row := json.loads(line)).get("event_type") == "alert"}
 
+    def alert_ids(self, client_parts, server_data):
+        events = [(True, payload) for payload in client_parts]
+        events.append((False, server_data))
+        return self.alert_ids_for_events(events)
+
     def test_segmented_and_coalesced_handshake_prefixes(self):
         client = frame_bytes(TYPE_PLAINTEXT, hello()) + frame_bytes(TYPE_PLAINTEXT, authentication())
         server = frame_bytes(TYPE_PLAINTEXT, challenge())
@@ -203,3 +244,47 @@ class SuricataRuleTests(unittest.TestCase):
         invalid[12] = 2
         invalid += b"PLH1 PLC1 PLA1"
         self.assertEqual(self.alert_ids([bytes(invalid)], b"ordinary synthetic bytes"), set())
+
+    def test_ordered_launcher_delivery_progression(self):
+        plk1 = struct.pack(
+            "<4sHBBQQ32s", b"PLK1", 2, 1, 0, 24, 32, bytes(32)
+        )
+        ordered = [
+            (True, frame_bytes(TYPE_PLAINTEXT, hello())),
+            (False, frame_bytes(TYPE_PLAINTEXT, challenge())),
+            (True, frame_bytes(TYPE_PLAINTEXT, authentication())),
+            (False, frame_bytes(TYPE_PLAINTEXT, plk1)),
+        ]
+        ids = self.alert_ids_for_events(ordered)
+        self.assertTrue({4202601, 4202602, 4202603, 4202614}.issubset(ids))
+
+        missing_challenge = [ordered[0], ordered[2], ordered[3]]
+        self.assertNotIn(4202614, self.alert_ids_for_events(missing_challenge))
+
+    def test_observed_core_startup_exchange(self):
+        client_metadata = bytes.fromhex(
+            "face0110000001000300000001000000000000001b0000002f600000"
+        )
+        events = [
+            (False, frame_bytes(3, b"SYS|Q|EXT|STARTUP|PROBE|")),
+            (True, frame_bytes(3, client_metadata + b"SYS|R|EXT|STARTUP|OK|tags=synthetic")),
+        ]
+        self.assertIn(4202622, self.alert_ids_for_events(events))
+        response_without_metadata = (True, frame_bytes(3, b"SYS|R|EXT|STARTUP|OK|tags=synthetic"))
+        self.assertNotIn(4202622, self.alert_ids_for_events([response_without_metadata]))
+
+    def test_observed_core_preview_sequence(self):
+        jpeg = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00" + bytes(16) + b"\xff\xd9"
+        pv10 = b"PV10" + struct.pack("<I", len(jpeg)) + jpeg
+        client_metadata = bytes.fromhex(
+            "face01100000010004000000010000000000000015000000c3850000"
+        )
+        events = [
+            (True, frame_bytes(3, client_metadata + b"SYS|R|EXT|STARTUP|OK|tags=synthetic")),
+            (False, frame_bytes(3, b"SCR|PREVIEW|ENABLE|1")),
+            (False, frame_bytes(3, b"SCR|PREVIEW|REQ")),
+            (True, frame_bytes(3, client_metadata + b"SCR|PREVIEW|ACK|SEQ|2")),
+            (True, frame_bytes(18, pv10)),
+        ]
+        self.assertIn(4202634, self.alert_ids_for_events(events))
+        self.assertNotIn(4202634, self.alert_ids_for_events(events[1:]))

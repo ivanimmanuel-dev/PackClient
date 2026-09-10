@@ -361,10 +361,10 @@ class PcapToolingTests(unittest.TestCase):
         envelope = covered + bytes(32)
         raw = b"".join(
             (
+                frame_bytes(TYPE_ENCRYPTED, envelope),
                 frame_bytes(TYPE_PLAINTEXT, header),
                 frame_bytes(TYPE_PLAINTEXT, chunk0),
                 frame_bytes(TYPE_PLAINTEXT, chunk1),
-                frame_bytes(TYPE_ENCRYPTED, envelope),
             )
         )
         report = analyze_segments([(100, 5000, raw, False)])

@@ -74,6 +74,16 @@ def _envelope() -> bytes:
     return b"\x01" + bytes(range(16)) + struct.pack(">I", len(ciphertext)) + ciphertext + bytes(32)
 
 
+def _core_envelope() -> bytes:
+    ciphertext = bytes.fromhex("00112233445566778899aabbccddeeff")
+    return b"\x01" + bytes(range(16)) + struct.pack("<I", len(ciphertext)) + ciphertext + bytes(32)
+
+
+def _pv10() -> bytes:
+    jpeg = b"\xff\xd8\xff\xe0\x00\x10JFIF\x00" + bytes(16) + b"\xff\xd9"
+    return b"PV10" + struct.pack("<I", len(jpeg)) + jpeg
+
+
 def _ethernet_ipv4_tcp(payload: bytes, sequence: int) -> bytes:
     ethernet = bytes.fromhex("00112233445566778899aabb0800")
     total_length = 20 + 20 + len(payload)
@@ -160,6 +170,9 @@ class WiresharkRuntimeTests(unittest.TestCase):
         pla1 = frame_bytes(TYPE_PLAINTEXT, _authentication())
         plk1 = frame_bytes(TYPE_PLAINTEXT, _plk1_header())
         envelope = frame_bytes(TYPE_ENCRYPTED, _envelope())
+        core_envelope = frame_bytes(TYPE_ENCRYPTED, _core_envelope())
+        core_command = frame_bytes(3, b"INP|HELLO|uuid=synthetic|S1|iid=")
+        pv10 = frame_bytes(18, _pv10())
         combined = plh1 + plc1 + pla1 + plk1 + envelope
         malformed = struct.pack("<I", FRAME_PREFIX | 3) + b"\x00\x00\x00"
         prefix_collision = (
@@ -178,6 +191,8 @@ class WiresharkRuntimeTests(unittest.TestCase):
             "heuristic_false_positive": [(1500, prefix_collision)],
             "combined": [(2000, combined)],
             "envelope": [(2500, envelope)],
+            "core_envelope": [(2600, core_envelope)],
+            "core": [(2700, core_command + pv10)],
             "split_after_header": [(3000, plh1[:4]), (3004, plh1[4:])],
             "split_header": [(4000, plh1[:2]), (4002, plh1[2:])],
             "malformed": [(5000, malformed)],
@@ -256,7 +271,7 @@ class WiresharkRuntimeTests(unittest.TestCase):
     def test_plugin_loads_and_protocol_registers(self):
         protocols = self._run("-G", "protocols").stdout
         rows = [line.split("\t") for line in protocols.splitlines()]
-        self.assertTrue(any(len(row) >= 3 and row[0] == "PackClient Launcher Transport"
+        self.assertTrue(any(len(row) >= 3 and row[0] == "PackClient Transport"
                             and row[2] == "packclient" for row in rows),
                         "PackClient must register its long name and filter abbreviation")
 
@@ -295,16 +310,60 @@ class WiresharkRuntimeTests(unittest.TestCase):
                 "packclient.message_type",
                 "packclient.envelope.version",
                 "packclient.envelope.ciphertext_length",
-                "packclient.object.magic",
+                "packclient.envelope.format",
             ),
             display_filter="packclient.message_type == 0x16",
         )
-        self.assertEqual(rows, [["0x00000016", "1", "16", ""]])
+        self.assertEqual(rows, [["0x00000016", "1", "16", "Launcher (big-endian length)"]])
         ## Query absent fields directly because older TShark interprets additional
         # `-G fields` arguments as a prefix, conflicting with the Lua-loader flags.
         for name in ("packclient.envelope.plaintext", "packclient.envelope.decrypted"):
             self._run("-r", str(self.paths["envelope"]), "-T", "fields", "-e", name,
                       invalid_field=name)
+
+    def test_core_envelope_uses_little_endian_length(self):
+        rows = self._fields(
+            "core_envelope",
+            (
+                "packclient.phase",
+                "packclient.envelope.ciphertext_length",
+                "packclient.envelope.format",
+            ),
+            display_filter="packclient.message_type == 0x16",
+        )
+        self.assertEqual(rows, [["Core", "16", "Core (little-endian length)"]])
+
+    def test_core_command_and_pv10_fields(self):
+        rows = self._fields(
+            "core",
+            (
+                "packclient.phase",
+                "packclient.message_type",
+                "packclient.core.command",
+                "packclient.pv10.magic",
+                "packclient.pv10.jpeg_length",
+            ),
+            display_filter="packclient",
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][0].split(","), ["Core", "Core"])
+        self.assertEqual(rows[0][1].split(","), ["0x00000003", "0x00000012"])
+        self.assertEqual(rows[0][2], "INP|HELLO|uuid=synthetic|S1|iid=")
+        self.assertEqual(rows[0][3], "PV10")
+        self.assertEqual(rows[0][4], str(len(_pv10()) - 8))
+
+    def test_core_command_enables_heuristic_recognition(self):
+        rows = self._fields(
+            "core",
+            ("_ws.col.Protocol", "packclient.core.command", "packclient.pv10.magic"),
+            decode_as=False,
+            heuristic_first=True,
+            display_filter="packclient",
+        )
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][0], "PackClient")
+        self.assertEqual(rows[0][1], "INP|HELLO|uuid=synthetic|S1|iid=")
+        self.assertEqual(rows[0][2], "PV10")
 
     def test_split_after_outer_header_desegments(self):
         rows = self._fields(
