@@ -58,13 +58,13 @@ flowchart TD
 
 | Topic | Reference |
 |---|---|
-| Execution chain and recovered components | [Launcher architecture](docs/launcher-architecture.md) |
+| Execution chain and recovered components | [Launcher Architecture](docs/launcher-architecture.md) |
 | `1RCP` screenshot protocol and framebuffer | [Screenshot IPC](docs/screenshot-ipc.md) |
 | Benign local peer/simulator | [Synthetic IPC Validation](docs/screenshot-ipc-validation.md) |
-| Network framing, authentication and PLK1 | [Launcher protocol](docs/launcher-protocol.md) |
+| Network framing, authentication and PLK1 | [Launcher Protocol](docs/launcher-protocol.md) |
 | Core recovery and runtime behavior | [Core Analysis](docs/core-analysis.md) |
 | Windows session handoff | [Active-session Handoff](docs/active-session-handoff.md) |
-| Runtime memory, persistence and networking | [Runtime analysis](docs/runtime-analysis.md) |
+| Runtime memory, persistence and networking | [Runtime Analysis](docs/runtime-analysis.md) |
 | Evidence, identities and scope | [Evidence](docs/evidence.md) |
 | Known gaps and limitations | [Limitations](docs/limitations.md) |
 | Passive protocol-analysis tools | [Tooling](docs/tooling.md) |
