@@ -1,6 +1,8 @@
 # Passive analysis tools
 
-The repository includes three offline interfaces for the recovered launcher protocol: a raw-stream decoder, a PCAP/PCAPNG decoder, and a Wireshark dissector. Their wire contracts are documented in the [Launcher protocol](launcher-protocol.md); research boundaries are summarized in [limitations](limitations.md).
+The repository includes two Python command-line tools and a Wireshark dissector for Launcher traffic. The Python tools share separate protocol and packet-capture modules. They parse Launcher framing, authentication, encrypted-envelope metadata, and PLK1 delivery without executing samples or opening network connections.
+
+These tools do not decode post-delivery Core traffic or Core's separate type-`0x16` format. Launcher wire details are documented in [Launcher protocol](launcher-protocol.md), with current scope and limits in [Scope and limitations](limitations.md).
 
 ## Interfaces and requirements
 
@@ -20,7 +22,7 @@ The raw CLI omits supplied keys and recovered plaintext bodies from its output. 
 
 ## Minimal example
 
-From the repository root, create a 32-byte PLH1 object and wrap it in lower type `0x15`:
+From the repository root, create a 32-byte PLH1 object and wrap it in plaintext outer type `0x15`:
 
 ```python
 from pathlib import Path
@@ -79,7 +81,7 @@ The parser handles classic PCAP in either byte order, microsecond/nanosecond tim
 
 Each TCP direction is reassembled separately. Segmentation, coalescing, out-of-order segments, identical overlap and duplicates are covered by the synthetic suite. Gaps and contradictory overlap reject the flow. The sequence-span limit is 256 MiB per direction. The CLI reads the capture into memory, so that span limit is not a total-memory cap.
 
-Only flows beginning at a recognized frame boundary are included by default. `--all-tcp` adds other TCP payload flows for diagnostics without classifying them as PackClient. A capture with no candidate flows can return 0. Included flows may also return `partial`; inspect each flow status. Rejected or malformed flows and invalid capture input return 2.
+Only flows beginning at a recognized frame boundary are included by default. `--all-tcp` adds other TCP payload flows for diagnostics without classifying them as PackClient. Exit code 0 means the capture was processed without a rejected flow; it does not mean PackClient traffic was found. Check `included_flow_count` and the reported flows. Included flows may also return `partial`; inspect each flow status. Rejected or malformed flows and invalid capture input return 2.
 
 The timeline preserves TCP order within each direction. Cross-direction ordering is best effort, based on the earliest timestamp of bytes contributing to each frame, so displayed timestamps can be nonmonotonic. Missing timestamps remain explicit.
 
@@ -96,7 +98,7 @@ Both Python CLIs accept `--psk-text`, `--psk-hex`, `--use-default-psk`, `--aes-k
 | Envelope HMAC key | Type-`0x16` authentication |
 | AES key and envelope HMAC key | Authentication before AES-256-CBC decryption, strict padding and inner type `0x15` |
 
-The fallback `pack-launch-dev-psk` is used only with `--use-default-psk`. No environment variable is read implicitly, and no Launcher envelope key is derived from the handshake PSK. Launcher envelope-key initialization remains unresolved, so those keys must be supplied independently. Core's separate `auth_psk` derivation is documented in the protocol reference. AES decryption is attempted only after HMAC verification succeeds.
+The fallback `pack-launch-dev-psk` is used only with `--use-default-psk`. No environment variable is read implicitly, and no Launcher envelope key is derived from the handshake PSK. Launcher envelope-key initialization remains unresolved, so those keys must be supplied independently. These options apply to the Launcher envelope. The tools do not decode Core's separate type-`0x16` format or derive its keys; that format is documented in [Core analysis](core-analysis.md). AES decryption is attempted only after HMAC verification succeeds.
 
 PLK1 verification requires a valid 56-byte header, supported version, zero-based chunk sequence, exact sizes and a matching final SHA-256. Effective sizes are bounded at 128 MiB. Version 2 raw-block LZ4 output is unverifiable when the optional dependency is unavailable or decoding is disabled. The CLIs do not write recovered payloads to disk.
 
@@ -122,7 +124,7 @@ packclient.envelope.ciphertext_length == 16
 
 The dissector presents type-`0x16` metadata but does not verify HMAC, decrypt or reassemble PLK1 payloads. Unknown message types remain unlabeled.
 
-## Validation
+## Tests
 
 ```sh
 python -B -m unittest discover -s tests -v
