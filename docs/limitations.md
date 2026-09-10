@@ -26,10 +26,10 @@ Neither local process dump contained an independently identifiable Core image. T
 
 ## Detection and tooling limits
 
-The automated tests exercise framing, both phase-specific encryption formats, reassembly, verified extraction, malformed-input handling, screenshot-message serialization, the Wireshark dissector, and detection-rule mechanics. Local checks against retained historical captures and memory artifacts additionally exercised real PLK1/Core recovery, Core traffic, `PV10`, and both compiled YARA rules. They do not reproduce the complete malware execution chain or establish production detection accuracy.
+Automated tests cover framing, Launcher and Core encryption, TCP reassembly, verified artifact extraction, malformed inputs, screenshot IPC, the Wireshark dissector and the detection rules. Historical captures were also used to validate PLK1/Core recovery, Core traffic and `PV10` parsing, while recovered memory mappings were used to test both YARA rules. These checks do not reproduce end-to-end malware execution or measure production detection performance.
 
-The Launcher YARA rule matched 86 of 86 retained Launcher mappings and none of 383 other retained objects. The Core rule matched the recovered DLL and 352 of 352 retained Core mappings, with no matches among 116 Launcher/control allocations. Both produced zero matches in a preliminary scan of more than 30,000 local Windows and installed-application PE files. No representative unrelated-malware or enterprise corpus was tested, so the rules remain experimental and production false-positive rates are unknown.
+The YARA rules were tested against the recovered binaries and memory mappings, along with more than 30,000 Windows and installed-application PE files. No representative enterprise-software or unrelated-malware corpus was tested, so both rules remain experimental.
 
-The Suricata rules cover plaintext Launcher candidates, challenge-to-PLK1 progression, an observed Core startup response, and startup-to-`PV10` correlation. They do not validate a complete authenticated session, reconstruct the PLK1 body, or expose commands hidden by Core encryption.
+The Suricata rules cover plaintext Launcher markers and observed sequences through PLK1 delivery, Core startup and `PV10`. They are intended for hunting and regression testing rather than complete session validation; they do not reconstruct PLK1 payloads or decrypt Core traffic.
 
 Additional technical context is available in [Evidence](evidence.md), [Runtime analysis](runtime-analysis.md), [Screenshot IPC](screenshot-ipc.md), [Launcher protocol](launcher-protocol.md), and the [Detection guide](detection-guide.md).
