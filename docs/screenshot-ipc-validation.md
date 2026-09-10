@@ -1,6 +1,6 @@
 # Synthetic screenshot IPC validation
 
-This appendix validates the reconstructed [`1RCP` worker contract](screenshot-ipc.md) with a local peer and simulator. The simulator sends a fixed 2 × 2 BGRX frame so the message sequence and image serialization can be reproduced independently.
+This appendix exercises the reconstructed [`1RCP` worker contract](screenshot-ipc.md) using a local named-pipe peer and a simulator that sends a fixed 2 × 2 BGRX frame. It does not execute PackClient, contact a remote endpoint, or use captured malware data.
 
 The kit targets **Windows PowerShell 5.1** and local synthetic inputs.
 
@@ -65,13 +65,13 @@ The fixed BGRX and BMP bytes are deterministic across successful runs. Timestamp
 
 Malformed or incomplete frames fail without producing a framebuffer. If failure occurs after a valid frame has already been received, that frame may remain alongside the failure summary.
 
-## Validation record
+## Test coverage
 
 | Cases | Count | Assertion |
 |---|---:|---|
 | Happy exchange, BMP reconstruction, repeatability | 3 | Exact sequence, fixed pixel bytes, top-down BMP fields and known hashes |
 | Wrong magic, unexpected type, truncated header | 3 | Rejection without framebuffer output |
-| Zero/absurd READY dimensions, nonzero READY payload | 3 | Rejection before a recapture result |
+| Zero/absurd READY dimensions, nonzero READY payload | 3 | Rejection before framebuffer data is accepted |
 | Truncated pixels, inconsistent payload length, absurd frame dimensions | 3 | Rejection of incomplete or invalid frame data |
 | Peer without a worker; simulator without a peer | 2 | Finite connection timeouts |
 | Existing output directory | 1 | Rejection preserves every prior output filename and byte |
@@ -80,8 +80,8 @@ The current suite contains **15 tests** covering protocol sequencing, image reco
 
 The peer accepts only the local `\\.\pipe\` namespace and restricts the synthetic endpoint to the current user while denying the NETWORK SID (`S-1-5-2`).
 
-## Validation scope
+## What the tests establish
 
-The peer validates dimensions, message lengths and finite I/O waits. These bounds belong to the synthetic implementation and are intentionally stricter than the recovered worker.
+The peer validates message order, dimensions, payload lengths, image serialization, and finite I/O behavior. Its defensive bounds are intentionally stricter than those recovered from the real worker.
 
-The recovered worker ignores request-tail fields and handles some unexpected messages differently. The peer and simulator validate the reconstructed framing and image format; they do not reproduce GDI capture, session acquisition, worker lifetime behavior or C2 forwarding. See the [worker analysis](screenshot-ipc.md) and [limitations](limitations.md) for the corresponding runtime boundaries.
+These tests confirm the reconstructed `1RCP` framing and framebuffer format. They do not reproduce PackClient's GDI capture, session acquisition, worker lifetime, external peer, or any downstream forwarding of captured pixels. See [Screenshot IPC](screenshot-ipc.md) and [Scope and limitations](limitations.md).
