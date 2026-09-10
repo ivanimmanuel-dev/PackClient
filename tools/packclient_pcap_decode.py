@@ -76,7 +76,7 @@ def parse_args() -> argparse.Namespace:
         "--phase",
         choices=(PHASE_AUTO, PHASE_LAUNCHER, PHASE_CORE),
         default=PHASE_AUTO,
-        help="protocol phase; auto switches to Core after verified PLK1 delivery",
+        help="protocol phase; auto switches to Core after a complete PLK1 transfer",
     )
     core_psk_group = parser.add_mutually_exclusive_group()
     core_psk_group.add_argument("--core-psk-text", help="literal UTF-8 Core auth_psk")

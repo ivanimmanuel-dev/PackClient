@@ -82,7 +82,7 @@ python -B tools/packclient_pcap_decode.py capture.pcapng --extract-plk1 --extrac
 
 `--client-endpoint` is a direction hint and accepts numeric addresses only; IPv6 uses `[address]:port`. Overrides that contradict validated protocol-role evidence are rejected. No port is treated as inherently PackClient.
 
-Capture decoding defaults to `--phase auto`. After a verified final PLK1 chunk, automatic decoding preserves the matching four-byte chunk acknowledgement as Launcher traffic, then classifies subsequent frames as Core. Plaintext Core commands are labelled conservatively, and validated type-18 `PV10` messages expose JPEG size and SHA-256 metadata without printing the image bytes.
+Capture decoding defaults to `--phase auto`. After the final chunk of a complete PLK1 transfer, automatic decoding preserves the matching four-byte chunk acknowledgement as Launcher traffic, then classifies subsequent frames as Core. Plaintext Core commands are labelled conservatively, and validated type-18 `PV10` messages expose JPEG size and SHA-256 metadata without printing the image bytes.
 
 Artifact extraction requires `--output-dir` and at least one extraction switch. PLK1 output is written only after sequence, size, optional raw-LZ4 decompression, and final SHA-256 verification. Known Core bytes receive a `PackClientCore-<digest>.dll` name; other verified PLK1 objects remain `.bin`. `PV10` output requires an exact declared length and JPEG SOI/EOI markers. Duplicate objects are written once with each observation retained in `manifest.json`.
 
