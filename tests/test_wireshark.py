@@ -315,7 +315,7 @@ class WiresharkRuntimeTests(unittest.TestCase):
             display_filter="packclient.message_type == 0x16",
         )
         self.assertEqual(rows, [["0x00000016", "1", "16", "Launcher (big-endian length)"]])
-        ## Query absent fields directly because older TShark interprets additional
+        # Query absent fields directly because older TShark interprets additional
         # `-G fields` arguments as a prefix, conflicting with the Lua-loader flags.
         for name in ("packclient.envelope.plaintext", "packclient.envelope.decrypted"):
             self._run("-r", str(self.paths["envelope"]), "-T", "fields", "-e", name,
