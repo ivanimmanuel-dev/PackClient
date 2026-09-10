@@ -1,6 +1,6 @@
 # Active-session handoff
 
-This document describes the target-session selection, token handling, command-line construction, and session-drift behavior recovered from Launcher B. All RVAs are relative to the recovered Launcher B described in [architecture](architecture.md). The behavior was reconstructed statically; the reviewed runtime evidence does not show a successful active-session replacement.
+This document describes the target-session selection, token handling, command-line construction, and session-drift behavior recovered from Launcher B. All RVAs are relative to the recovered Launcher B described in [Launcher architecture](launcher-architecture.md). The behavior was reconstructed statically; the reviewed runtime evidence does not show a successful active-session replacement.
 
 ## Session selection and entry gate
 

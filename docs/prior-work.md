@@ -8,7 +8,7 @@ Proofpoint's **27 August 2026** [Carry-On Compromise: TA4922 Packs PackClient](h
 
 Deception.Pro's [*New PackClient & HOK (Aug 2026)*](https://blog.deception.pro/blog/new-packclient-hok-aug2026) provides later hands-on-keyboard and attacker-controlled ManageEngine context. That operator telemetry is prior public reporting; its private backend artifacts were not available to this research.
 
-The [MalwareBazaar campaign ZIP](https://bazaar.abuse.ch/sample/7108ff29916d064216aa2ece7fb395f1e3a73d12d19895bffc0bd46806cbf85a/) anchors the recovered `7108FF…F85A` lineage used in the [architecture](architecture.md).
+The [MalwareBazaar campaign ZIP](https://bazaar.abuse.ch/sample/7108ff29916d064216aa2ece7fb395f1e3a73d12d19895bffc0bd46806cbf85a/) anchors the recovered `7108FF…F85A` lineage used in the [Launcher architecture](launcher-architecture.md).
 
 ## What this work contributes
 

@@ -1,6 +1,6 @@
 # PackClient Core
 
-`PackClientCore.dll` is the 32-bit runtime delivered by Launcher B after authentication. Historical PLK1 traffic reconstructs it byte-for-byte and then continues into captured Core commands and screenshot frames. The earlier loading chain is described in [Architecture](architecture.md), while process and persistence observations are documented in [Runtime](runtime-validation.md).
+`PackClientCore.dll` is the 32-bit runtime delivered by Launcher B after authentication. Historical PLK1 traffic reconstructs it byte-for-byte and then continues into captured Core commands and screenshot frames. The earlier loading chain is described in [Launcher architecture](launcher-architecture.md), while process and persistence observations are documented in [Runtime analysis](runtime-analysis.md).
 
 ## Recovery from PLK1
 
@@ -355,6 +355,6 @@ Its built-in patterns cover address formats consistent with Bitcoin mainnet and 
 
 ## Persistence observed at runtime
 
-Outside Core, runtime analysis observed two `NvSvc` task outcomes. The full executable scheduled the copied `Tax_Notice_23665.exe`. A direct-DLL sandbox execution scheduled a copied `rundll32.exe`; because the task omitted the original DLL argument, it could not reproduce that invocation. This was a second observed execution path, not evidence of another PackClient variant. See [Runtime](runtime-validation.md).
+Outside Core, runtime analysis observed two `NvSvc` task outcomes. The full executable scheduled the copied `Tax_Notice_23665.exe`. A direct-DLL sandbox execution scheduled a copied `rundll32.exe`; because the task omitted the original DLL argument, it could not reproduce that invocation. This was a second observed execution path, not evidence of another PackClient variant. See [Runtime analysis](runtime-analysis.md).
 
 Historical infrastructure and detection guidance are available in the [Detection guide](detection-guide.md).

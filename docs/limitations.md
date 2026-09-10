@@ -40,4 +40,4 @@ Established historical PackClient captures are available, but no representative 
 
 ## Generalization
 
-No second carrier variant was acquired for byte-level comparison. These conclusions therefore apply to the [pinned build](architecture.md), not every PackClient deployment.
+No second carrier variant was acquired for byte-level comparison. These conclusions therefore apply to the [pinned build](launcher-architecture.md), not every PackClient deployment.

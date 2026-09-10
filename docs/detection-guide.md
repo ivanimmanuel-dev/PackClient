@@ -33,7 +33,7 @@ The included rules are experimental and should be validated against local teleme
 | `NvSvc` task creation | In the PID 5812 session, the process tree places task creation beneath that surrogate. In the PID 3696 session, elevated host PID 2116 creates both PID 3696 and `schtasks` PID 4600; the latter two are siblings. Task XML confirms the configured action. |
 | `/scr_cap_worker` and session controls | Recovered launcher functionality; the worker was exercised separately and was not demonstrated as part of the preserved runtime chain |
 
-Treat individual signals as pivots and correlate them with process ancestry, task creation, file activity, and runtime timing. Scope joins to the VM, time interval, and process creation identity (ProcessGuid where available), not a bare PID. The PID 3696 session shows an earlier unrelated PID 8248 before that number is reused for the later console child. Use lifecycle events or a live process view to confirm process lifetime. See [runtime validation](runtime-validation.md).
+Treat individual signals as pivots and correlate them with process ancestry, task creation, file activity, and runtime timing. Scope joins to the VM, time interval, and process creation identity (ProcessGuid where available), not a bare PID. The PID 3696 session shows an earlier unrelated PID 8248 before that number is reused for the later console child. Use lifecycle events or a live process view to confirm process lifetime. See [Runtime analysis](runtime-analysis.md).
 
 ## Host pivots
 

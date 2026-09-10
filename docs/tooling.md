@@ -1,6 +1,6 @@
 # Passive analysis tools
 
-The repository includes three offline interfaces for the recovered launcher protocol: a raw-stream decoder, a PCAP/PCAPNG decoder, and a Wireshark dissector. Their wire contracts are documented in the [protocol reference](protocol-reference.md); research boundaries are summarized in [limitations](limitations.md).
+The repository includes three offline interfaces for the recovered launcher protocol: a raw-stream decoder, a PCAP/PCAPNG decoder, and a Wireshark dissector. Their wire contracts are documented in the [Launcher protocol](launcher-protocol.md); research boundaries are summarized in [limitations](limitations.md).
 
 ## Interfaces and requirements
 

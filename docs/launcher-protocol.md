@@ -1,6 +1,6 @@
 # Transport, authentication, and delivery
 
-This is a byte-level reference for the recovered `PackClientLauncher.exe` build identified in [architecture](architecture.md). It documents the reconstructed wire contract. All multi-byte fields are little-endian unless explicitly marked otherwise.
+This is a byte-level reference for the recovered `PackClientLauncher.exe` build identified in [Launcher architecture](launcher-architecture.md). It documents the reconstructed wire contract. All multi-byte fields are little-endian unless explicitly marked otherwise.
 
 ## Outer framing
 

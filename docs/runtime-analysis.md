@@ -1,4 +1,4 @@
-# Runtime validation
+# Runtime analysis
 
 Two local runtime sessions connect the static reconstruction to launcher residence, persistence and failed outbound behavior. Historical public Triage sessions separately preserve successful delivery and Core traffic. The screenshot-worker experiments are documented separately in [screenshot IPC](screenshot-ipc.md). The PID 3696 session includes interrupted and manual launches, so its observations are treated as scoped events rather than one uninterrupted baseline.
 

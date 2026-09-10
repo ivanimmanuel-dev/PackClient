@@ -1,6 +1,6 @@
 # Launcher architecture and lineage
 
-This document describes the recovered July 2026 Tax Notice build. All code locations are relative virtual addresses (RVAs) within Executable B unless explicitly attributed to another component. Internal function names are analyst role labels. Runtime observations are documented in [runtime validation](runtime-validation.md).
+This document describes the recovered July 2026 Tax Notice build. All code locations are relative virtual addresses (RVAs) within Executable B unless explicitly attributed to another component. Internal function names are analyst role labels. Runtime observations are documented in [Runtime analysis](runtime-analysis.md).
 
 ## Component identities
 
@@ -120,7 +120,7 @@ B also implements process-guardian, session-mutex, diagnostic, and crash-dump fu
 
 The crash writer dynamically resolves `MiniDumpWriteDump` and supplies the current process/PID, type `0x1001`, optional local exception information (`ClientPointers=FALSE`), and null user-stream/callback arguments. `0x1001` means `MiniDumpWithDataSegs | MiniDumpWithThreadInfo`; it does not request full/private memory or guarantee manually mapped B/Core/key pages. See [Microsoft's minidump flags](https://learn.microsoft.com/en-us/windows/win32/api/minidumpapiset/ne-minidumpapiset-minidump_type).
 
-The one-shot crash path tries `launcher_crash.dmp` beside the current process module, then a PID/tick-count filename there, then `%TEMP%\PackClientLauncherDumps\`. A separate snapshot path uses `launcher_snapshot.dmp`. These recovered self-dump contracts are distinct from the broader analyst-collected dumps in [runtime validation](runtime-validation.md).
+The one-shot crash path tries `launcher_crash.dmp` beside the current process module, then a PID/tick-count filename there, then `%TEMP%\PackClientLauncherDumps\`. A separate snapshot path uses `launcher_snapshot.dmp`. These recovered self-dump contracts are distinct from the broader analyst-collected dumps in [Runtime analysis](runtime-analysis.md).
 
 ## Evidence boundaries
 
