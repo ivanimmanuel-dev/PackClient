@@ -127,7 +127,7 @@
   },
   {
     "id": "plk1-positive-flow",
-    "asset": "assets/figures/phase5a/01-wireshark-plk1-positive-flow.png",
+    "asset": "assets/figures/historical-plk1-delivery.png",
     "title": "A historical Triage Launcher flow reaches PLK1.",
     "caption": "Wireshark displays PLH1, PLC1, PLA1 and PLK1 on the filtered historical flow. The selected PLK1 header declares wire version 2, LZ4, 669,717 transferred bytes, 985,088 original bytes and the expected Core plaintext SHA-256.",
     "grade": "runtime",
@@ -136,7 +136,7 @@
   },
   {
     "id": "full-exe-persistence",
-    "asset": "assets/figures/phase5a/02-triage-full-exe-nvsvc-persistence.png",
+    "asset": "assets/figures/full-executable-persistence.png",
     "title": "Full-EXE execution persists the Tax Notice host.",
     "caption": "The process view records NvSvc task creation with the ProgramData Tax_Notice_23665.exe action, matching the intended signed-host/carrier chain.",
     "grade": "runtime",
@@ -145,7 +145,7 @@
   },
   {
     "id": "direct-dll-persistence",
-    "asset": "assets/figures/phase5a/03-triage-direct-dll-rundll32-persistence.png",
+    "asset": "assets/figures/direct-dll-persistence-artifact.png",
     "title": "Direct-DLL execution persists a copied rundll32 host.",
     "caption": "The direct rundll32 invocation causes NvSvc to target a copied rundll32.exe without the DLL argument. That action cannot replay the original entry point and is treated as a sandbox-context artifact, not a second variant.",
     "grade": "runtime",
@@ -154,7 +154,7 @@
   },
   {
     "id": "carrier-entry",
-    "asset": "assets/figures/phase5a/05-ghidra-signed-host-injection-initialize.png",
+    "asset": "assets/figures/signed-host-carrier-call.png",
     "title": "The signed host calls the carrier initializer.",
     "caption": "At host RVA 0x1004, the signed Tax Notice executable directly calls the imported nvdaHelperRemote.dll injection_initialize entry, closing the previously unresolved export-selection boundary.",
     "grade": "static",
@@ -163,7 +163,7 @@
   },
   {
     "id": "core-plugin-abi",
-    "asset": "assets/figures/phase5a/08-ghidra-modern-plugin-abi-resolution.png",
+    "asset": "assets/figures/core-plugin-abi-resolution.png",
     "title": "Core resolves and validates the modern plugin ABI.",
     "caption": "The recovered Core resolves PackPlugin_GetAbiVersion and PackPlugin_GetFeatureId before accepting feature-specific host bindings. A separate legacy path resolves Main.",
     "grade": "static",
@@ -172,7 +172,7 @@
   },
   {
     "id": "core-pv10",
-    "asset": "assets/figures/phase5a/13-ghidra-pv10-serializer.png",
+    "asset": "assets/figures/core-pv10-header-construction.png",
     "title": "Core serializes its built-in preview as PV10.",
     "caption": "The Core serializer emits the PV10 marker in the built-in screenshot-preview path. Packet reconstruction finds 15 matching type-18 JPEG frames; no bridge from the separate Launcher 1RCP endpoint is established.",
     "grade": "static",
