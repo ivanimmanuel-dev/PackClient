@@ -887,6 +887,7 @@ def analyze_capture(
                 row["classification"] = (
                     metadata.get("handshake", {}).get("kind")
                     or metadata.get("plk1_header", {}).get("kind")
+                    or metadata.get("plk1_acknowledgement", {}).get("kind")
                     or metadata.get("pv10", {}).get("kind")
                     or metadata.get("core", {}).get("kind")
                     or ("type-0x16-envelope" if "envelope" in metadata else "unclassified")
@@ -1036,6 +1037,9 @@ def format_timeline(report: dict[str, Any]) -> str:
                 )
                 if "final" in chunk:
                     summary += f" final={chunk['final']['status']}"
+            acknowledgement = decoded.get("plk1_acknowledgement")
+            if acknowledgement:
+                summary += f" plk1_ack={acknowledgement['sequence']}"
             envelope = decoded.get("envelope")
             if envelope:
                 summary += (

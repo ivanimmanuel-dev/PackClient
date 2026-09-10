@@ -290,6 +290,7 @@ class ProtocolPhaseContext:
     """Flow-wide protocol phase shared by both TCP directions."""
 
     phase: str | None = None
+    pending_plk1_final_ack_sequence: int | None = None
 
 
 def derive_core_keys(auth_psk: bytes) -> tuple[bytes, bytes]:
@@ -715,6 +716,8 @@ class StreamDecoder:
     def _effective_phase(self, frame: OuterFrame) -> str:
         if self.phase != PHASE_AUTO:
             return self.phase
+        if self._pending_plk1_final_ack_sequence(frame) is not None:
+            return PHASE_LAUNCHER
         if self.phase_context.phase is not None:
             return self.phase_context.phase
         if frame.message_type == TYPE_ENCRYPTED:
@@ -777,8 +780,28 @@ class StreamDecoder:
             )
         if payload is not None:
             row["plaintext_payload_length"] = len(payload)
+            acknowledgement = self._pending_plk1_final_ack_sequence(frame)
+            if acknowledgement is not None:
+                row["plk1_acknowledgement"] = {
+                    "kind": "PLK1-ACK",
+                    "sequence": acknowledgement,
+                }
+                self.phase_context.pending_plk1_final_ack_sequence = None
+                return row
             self._decode_payload(payload, row)
         return row
+
+    def _pending_plk1_final_ack_sequence(self, frame: OuterFrame) -> int | None:
+        expected = self.phase_context.pending_plk1_final_ack_sequence
+        if (
+            expected is None
+            or self.direction != DIRECTION_CLIENT_TO_SERVER
+            or frame.message_type != TYPE_PLAINTEXT
+            or len(frame.payload) != 4
+        ):
+            return None
+        sequence = struct.unpack("<I", frame.payload)[0]
+        return sequence if sequence == expected else None
 
     def _decode_core_frame(
         self, frame: OuterFrame, row: dict[str, Any]
@@ -822,6 +845,9 @@ class StreamDecoder:
                 self._reassemblies.append(self._reassembler.snapshot())
                 self._reassembler = None
                 if self.phase == PHASE_AUTO:
+                    self.phase_context.pending_plk1_final_ack_sequence = chunk_state[
+                        "sequence"
+                    ]
                     self.phase_context.phase = PHASE_CORE
             return
         magic = payload[:4]

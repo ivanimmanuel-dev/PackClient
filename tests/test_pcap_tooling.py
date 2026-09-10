@@ -375,6 +375,47 @@ class PcapToolingTests(unittest.TestCase):
         self.assertIn("envelope_version=1 ciphertext=16", text)
         self.assertNotIn(vector.decode(), text)
 
+    def test_final_plk1_ack_stays_in_launcher_phase_before_core_traffic(self):
+        vector = b"synthetic-phase-boundary-vector"
+        plh = frame_bytes(TYPE_PLAINTEXT, hello())
+        header = frame_bytes(
+            TYPE_PLAINTEXT,
+            struct.pack(
+                "<4sHBBQQ32s",
+                b"PLK1",
+                1,
+                0,
+                0,
+                len(vector),
+                len(vector),
+                hashlib.sha256(vector).digest(),
+            ),
+        )
+        final_chunk = frame_bytes(
+            TYPE_PLAINTEXT, struct.pack("<II", 0, len(vector)) + vector
+        )
+        final_ack = frame_bytes(TYPE_PLAINTEXT, struct.pack("<I", 0))
+        core_message = frame_bytes(3, b"SYS|R|EXT|STARTUP|OK|tags=")
+        report = analyze_segments(
+            [
+                (100, 1000, plh, True),
+                (200, 5000, header, False),
+                (300, 5000 + len(header), final_chunk, False),
+                (400, 1000 + len(plh), final_ack, True),
+                (500, 5000 + len(header) + len(final_chunk), core_message, False),
+            ]
+        )
+        timeline = report["flows"][0]["timeline"]
+        acknowledgement = timeline[3]
+        self.assertEqual(acknowledgement["classification"], "PLK1-ACK")
+        self.assertEqual(acknowledgement["decoder"]["phase"], "launcher")
+        self.assertEqual(
+            acknowledgement["decoder"]["plk1_acknowledgement"]["sequence"], 0
+        )
+        self.assertEqual(timeline[4]["decoder"]["phase"], "core")
+        self.assertEqual(timeline[4]["classification"], "core-structured-message")
+        self.assertIn("plk1_ack=0", format_timeline(report))
+
     def test_four_byte_frame_word_is_incomplete_body_not_message(self):
         only_header = bytes.fromhex("2400405a")
         report = analyze_segments([(100, 1000, only_header, True)])
