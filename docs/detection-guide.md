@@ -1,95 +1,63 @@
 # PackClient detection and hunting guide
 
-Research cut-off: 2026-09-09 (UTC)
+PackClient is best detected by joining its sideload, persistence, surrogate-process, and protocol behavior. Individual filenames and paths overlap legitimate NVDA, NVIDIA, and Windows components and should be treated as pivots rather than standalone verdicts.
 
-## Detection strategy
+The repository provides:
 
-Prefer behavior joins over single strings or filenames. `svchost.exe` and `nvdaHelperRemote.dll` are legitimate names in normal contexts; the useful signal is their path, parentage, command line, signer/origin, and nearby persistence activity.
+- Sigma rules for the observed `NvSvc` task, a bare 32-bit `svchost.exe`, screenshot-worker mode, and active-session mode;
+- a YARA rule for the recovered Launcher's marker constellation;
+- Suricata rules that reproduce the plaintext Launcher handshake markers for local regression testing.
 
-The repository includes the following detection rules under [`detections/`](../detections):
+The rules under [`detections/`](../detections) are experimental. Their tests verify matching behavior but do not establish production accuracy.
 
-- Sigma rules for the observed `NvSvc` task, suspicious bare 32-bit service host, screenshot-worker mode, and active-session mode;
-- a YARA rule for the recovered launcher's distinctive marker constellation;
-- local Suricata regression selectors for PLH1/PLC1/PLA1 frame prefixes and version bytes; these duplicate public ET object-magic coverage and are not presented as novel signatures.
+## Host behavior
 
-The included rules are experimental and should be validated against local telemetry and legitimate NVDA deployments.
+### Signed-host DLL sideload
 
-## September audit decisions
+Hunt for a signed NV Access/NVDA executable loading a colocated `nvdaHelperRemote.dll` from:
 
-| Candidate change | Decision | Reason |
-|---|---|---|
-| Broaden Sigma #6280 to generic `rundll32.exe` or the `NvSvc` directory | **Do not broaden** | The direct-DLL Triage task caused the carrier to copy/persist its sandbox host without the original DLL argument; that nonfunctional replay is an execution-context artifact, while NVIDIA-branded ProgramData paths can be legitimate |
-| Add more stateless Suricata rules for `PLH1`, `PLC1`, `PLA1`, `PLK1` or `PV10` | **Do not add duplicates** | Public ET already covers the visible markers; repository prefix rules are retained as local regression examples, while another magic match would not fix segmentation or phase ambiguity |
-| Add stream/transaction state | **High-value future work** | Historical captures validate the order `PLH1 -> PLC1 -> PLA1 -> PLK1`; reassembly-aware ordering is more discriminating and less packetization-sensitive |
-| Add Core YARA | **Hold for corpus testing** | The recovered Core supplies a stable constellation, but exports, PDB fragments or `PV10` alone are not sufficient and a benign-collision study is still missing |
-| Change the Wireshark MR | **Follow-up needed, not changed here** | The Launcher parser matches the positive July flow; Core reuses type `0x16` with the opposite ciphertext-length endianness, so decoding must be phase-aware |
+- a mounted image, archive extraction directory, download directory, or other user-writable location;
+- `ProgramData` outside an approved NVDA installation;
+- the process current directory when it differs from the installed NVDA directory.
 
-## Correlated observations
+Correlate the host and DLL paths, hashes, signatures, original filenames, parent process, current directory, and adjacent file creation. The DLL name is legitimate in normal NVDA installations and is not sufficient by itself.
 
-| Signal | Evidence relationship |
-|---|---|
-| Staged signed host and colocated helper | Static sideload evidence; observed in the PID 5812 session |
-| Bare 32-bit `svchost.exe` | Descendant in the PID 5812 process tree |
-| `NvSvc` task creation | In the PID 5812 session, the process tree places task creation beneath that surrogate. In the PID 3696 session, elevated host PID 2116 creates both PID 3696 and `schtasks` PID 4600; the latter two are siblings. Task XML confirms the configured action. |
-| `/scr_cap_worker` and session controls | Recovered launcher functionality; the worker was exercised separately and was not demonstrated as part of the preserved runtime chain |
+### `NvSvc` scheduled task
 
-Treat individual signals as pivots and correlate them with process ancestry, task creation, file activity, and runtime timing. Scope joins to the VM, time interval, and process creation identity (ProcessGuid where available), not a bare PID. The PID 3696 session shows an earlier unrelated PID 8248 before that number is reused for the later console child. Use lifecycle events or a live process view to confirm process lifetime. See [Runtime analysis](runtime-analysis.md).
-
-## Host pivots
-
-### 1. NVDA helper sideload
-
-Hunt for a signed NV Access/NVDA executable loading `nvdaHelperRemote.dll` from:
-
-- user-writable directories;
-- disk-image extraction/staging directories;
-- `ProgramData` paths unrelated to an approved NVDA installation;
-- the process current directory when it is not the installed NVDA directory.
-
-Useful telemetry:
-
-- process image path, signer, original filename, hash, parent, and current directory;
-- image-load path/hash/signature status;
-- adjacent file creation for the host and DLL;
-- whether the DLL has the expected organization/signature for the deployed NVDA version.
-
-False-positive control: `nvdaHelperRemote.dll` is a legitimate NVDA component name. Never alert on the filename alone.
-
-### 2. `NvSvc` scheduled task
-
-The observed task was named `\\NvSvc`, triggered at logon, and launched:
+The observed full-executable path created `\NvSvc` with an `ONLOGON` trigger, `HIGHEST` run level, and this target:
 
 ```text
 C:\ProgramData\NVIDIA Corporation\NvSvc\Tax_Notice_23665.exe
 ```
 
-High-signal conditions include:
+High-signal combinations include:
 
-- task name exactly `NvSvc` combined with a non-NVIDIA-signed target;
-- a target under the exact `ProgramData` subdirectory above;
-- creation by a recently staged executable or its descendant;
-- `/SC ONLOGON` plus `/RL HIGHEST` in the creating command line;
-- creation within seconds of the host/carrier pair.
+- task name `NvSvc` with a target that is not NVIDIA-signed;
+- the exact target directory above;
+- creation by the staged host or a related process;
+- `/Create`, `/TR`, `/SC ONLOGON`, and `/RL HIGHEST` in the same `schtasks.exe` command line;
+- task creation within seconds of the host and companion DLL being staged.
 
-Telemetry sources include process creation, Task Scheduler Operational events, Security 4698, and endpoint task inventories. Normalize XML before comparing quoted action paths.
+Collect process creation, Task Scheduler Operational events, Security event 4698, task XML, target hashes, and signer data. A direct-DLL sandbox run instead scheduled a copied `rundll32.exe` without the original DLL argument; that nonfunctional replay does not justify a broad rule for generic `rundll32.exe` activity.
 
-### 3. Bare 32-bit `svchost.exe` surrogate
+### Suspended 32-bit surrogate
 
-Prioritize a process when several of these hold:
+The carrier creates `C:\Windows\SysWOW64\svchost.exe` suspended, places the protected package in it, changes the primary thread context, and resumes execution. In the retained Triage telemetry, one instance received 53 cross-process writes into a private region at `0x00440000` with length `0x66000` before `SetThreadContext`.
 
-- image is `C:\Windows\SysWOW64\svchost.exe`;
-- command line is only the image path, without ordinary `-k`, `-s`, or COM-server arguments;
-- parent is not `services.exe`/service-control infrastructure;
-- user is an interactive user rather than the expected service identity;
-- current directory points to a staging, download, mounted-image, or sample directory;
-- start time aligns with the suspicious host/carrier or task creation;
-- thread start addresses or executable mappings fall outside ordinary file-backed images.
+Prioritize a surrogate when several of these conditions occur together:
 
-Process metadata alone does not identify the injection subtype; memory mappings and thread starts provide the stronger discriminator.
+- the command line contains only the full `SysWOW64\svchost.exe` path;
+- the parent is not `services.exe` or ordinary service-control infrastructure;
+- it runs as an interactive user;
+- its current directory points to a staging, download, or mounted-image location;
+- private executable memory or thread start addresses do not map to ordinary loaded images;
+- cross-process memory writes and primary-thread context changes precede execution.
 
-### 4. Launcher special arguments
+The fixed address and write count are case anchors, not universal detection requirements. Process metadata alone does not establish the injection technique.
 
-The recovered launcher recognizes exact controls including:
+### Launcher execution modes
+
+The recovered Launcher recognizes these exact controls:
 
 ```text
 /scr_cap_worker <endpoint> [monitor-index]
@@ -97,18 +65,25 @@ The recovered launcher recognizes exact controls including:
 --active-session
 ```
 
-`/scr_cap_worker` is particularly distinctive even after launcher renaming. `-acsi` and `--active-session` are less distinctive and should be paired with launcher image or original-filename identity. The Sigma rules keep those behaviors separate so ATT&CK metadata follows the matched execution mode.
+`/scr_cap_worker` remains distinctive after file renaming. Pair `-acsi` and `--active-session` with Launcher image identity, original filename, or other PackClient behavior.
 
-### 5. Cache and filesystem leads
+### Cache and update storage
 
-Recovered cache strings describe a current-user protected layout containing:
+Launcher Core-cache leads include:
 
 ```text
 pluginsdata\x86\blobs\PackClientCore.primary.dll.pblob
 pluginsdata\x86\meta\PackClientCore.primary.dll.json
 ```
 
-and metadata markers:
+Core's plugin cache uses paired files under:
+
+```text
+pluginsdata\x86\blobs\<name>.pblob
+pluginsdata\x86\meta\<name>.json
+```
+
+Useful metadata and DPAPI markers include:
 
 ```text
 PackMonitorClient.PluginStore
@@ -116,62 +91,53 @@ PackMonitorClient.PluginStore.v1
 dpapi_current_user_v1
 ```
 
-The absolute base path was not resolved. Search user-profile and application-data locations, but treat filename/string hits as supporting evidence. The reconstructed active call path does not select the secondary slot.
+Core updates use current-user DPAPI under:
 
-The recovered Core adds two distinct storage leads. Plugin objects use paired current-user-DPAPI files under `pluginsdata\x86\blobs\<name>.pblob` and `pluginsdata\x86\meta\<name>.json`, with description `PackMonitorClient.PluginStore` and entropy `PackMonitorClient.PluginStore.v1`. Core updates use current-user DPAPI under `HKCU\Software\PackMonitorClient\LauncherDllStore\<bits>\Primary`. Neither store was populated in the reviewed tasks, so these remain static hunting candidates requiring benign-prevalence checks.
+```text
+HKCU\Software\PackMonitorClient\LauncherDllStore\<bits>\Primary
+```
 
-## Memory and local IPC pivots
+The cache filenames and markers are supporting evidence. No populated plugin cache or Core-update store was recovered from the observed executions.
 
-For a suspicious surrogate, useful collection targets include:
+## Memory and local IPC
 
-- mapped file list and signature status;
-- virtual memory type/protection/size;
-- thread start addresses and owning regions;
-- process and thread token/session data;
-- command line, parent, current directory, environment metadata, and handles;
-- local named-pipe handles and peer PIDs where available.
+For a suspicious surrogate, preserve private executable mappings, thread start addresses, thread context changes, loaded images, tokens, parentage, command line, current directory, and named-pipe handles.
 
-A plausible `1RCP` header is 20 bytes:
+The Launcher's local screenshot interface uses a 20-byte `1RCP` header. A structured match should require:
 
-| Offset | Field | Check |
-|---:|---|---|
-| `0x00` | magic | LE32 `0x50435231` / ASCII `1RCP` |
-| `0x04` | type | `1`, `2`, `3`, or `5` in this worker |
-| `0x08` | width | positive for types 1 and 2; impose an analyst size bound |
-| `0x0C` | height | positive for types 1 and 2; impose an analyst size bound |
-| `0x10` | payload length | zero for READY; exact `width * height * 4` for frame |
+- little-endian magic `0x50435231` (`1RCP`);
+- message type `1`, `2`, `3`, or `5`;
+- positive width and height for types 1 and 2;
+- zero payload length for READY or exactly `width × height × 4` bytes for a framebuffer.
 
-For requests of type 3 or 5, B ignores DWORDs 2–4. A raw `1RCP` string hit is weak; require the full 20-byte structure and field consistency.
+A raw `1RCP` string match is weak without the surrounding fields. The full interface is documented in [Screenshot IPC](screenshot-ipc.md).
 
 ## Network detection
 
-The initial handshake is plaintext inside the verified outer frame. Exact stream prefixes are:
+The Launcher handshake is plaintext inside the outer PackClient frame:
 
 | Direction | Object | Exact prefix |
 |---|---|---|
-| client -> server | PLH1 | `24 00 40 5A 15 00 00 00 50 4C 48 31` |
-| server -> client | PLC1 | `1C 00 40 5A 15 00 00 00 50 4C 43 31` |
-| client -> server | PLA1 | `2C 00 40 5A 15 00 00 00 50 4C 41 31` |
+| Client → server | `PLH1` | `24 00 40 5A 15 00 00 00 50 4C 48 31` |
+| Server → client | `PLC1` | `1C 00 40 5A 15 00 00 00 50 4C 43 31` |
+| Client → server | `PLA1` | `2C 00 40 5A 15 00 00 00 50 4C 41 31` |
+| Server → client | `PLK1` | `3C 00 40 5A 15 00 00 00 50 4C 4B 31` |
 
-The lengths encode `4-byte type + object size`. The Suricata rules additionally match little-endian version 1 and inspect reassembled TCP data at any buffer offset. In particular PLA1 follows PLH1 in the client stream; anchoring it with `startswith` can miss a coalesced buffer. These signatures match protocol prefixes rather than fully validating framing or HMAC state; TCP reassembly still matters.
+The first four bytes encode the outer body length and frame prefix. Prefer reassembled stream logic that validates the ordered `PLH1 → PLC1 → PLA1 → PLK1` exchange over isolated magic-string alerts. Normal TCP segmentation, coalescing, retransmission, and reordering can defeat packet-size assumptions.
 
-The [Proofpoint IOC table](https://www.proofpoint.com/us/blog/threat-insight/carry-compromise-ta4922-packs-packclient) lists `154.36.188[.]201` as post-infection infrastructure for July 15, without a port. The preserved process dump separately records a timed-out attempt to that address on TCP/443. Historical July Triage captures additionally establish successful raw PackClient framing on the same endpoint, including the ordered Launcher handshake, PLK1 Core delivery and post-Core application traffic. Port 443 must not be labelled TLS without TLS records.
+The repository Suricata rules match the first three prefixes plus wire version 1 in reassembled TCP data. They intentionally overlap public Emerging Threats coverage and serve as regression examples, not novel or complete protocol detectors.
 
-The filtered positive-flow PCAPNG validates the current repository Lua dissector's Launcher-side recognition and PLK1 metadata against historical sandbox traffic. Its SHA-256 is `AB437D0EAE5E3C93764B89A3ECC5F6940D3CBEE0C2BE8D80D34CD7CB4CA38875`; it is a 1,033-packet flow-filtered derivative of `260715-wd77daas7l/behavioral1`, conversation `10.127.0.66:49887 <-> 154.36.188.201:443`, not a separate collection. This result must not be conflated with an exact build/TShark regression of the separate upstream C merge request.
+Core screenshot responses use type 18 with:
 
-A phase-aware follow-up should cover four fixtures: the positive July Launcher flow; a PLH1-only retry flow; a synthetic Launcher type-`0x16` envelope with big-endian ciphertext length; and a synthetic Core type-`0x16` envelope with little-endian length. The last two must verify that one outer type is interpreted according to connection phase rather than by a universal byte order.
+```text
+PV10 || LE32(JPEG length) || JPEG bytes
+```
 
-### Proofpoint Emerging Threats coverage audit
+Launcher and Core both use outer type `0x16`, but the Launcher stores ciphertext length as big-endian while Core uses little-endian. Phase-aware inspection is required to interpret that shared type correctly, and encrypted Core traffic will hide plaintext commands.
 
-The reviewed ET PackClient block, SIDs 2069878–2069890, covers representative greeting, challenge, authentication, PLK1, acknowledgement, basic Core status/heartbeat/information and `PV10`/JFIF objects. Several rules encode one observed packetization with `tcp-pkt` and exact `dsize` expectations. For example, SID 2069878 expects the four-byte frame word in a four-byte packet and SID 2069879 expects a 36-byte packet beginning with type `0x15` and `PLH1`; SIDs 2069880–2069883 make comparable split/size assumptions.
+## Core YARA candidate
 
-Normal TCP can split, coalesce, retransmit or reorder those bytes. The rules match the source captures' packetization but can miss the same protocol objects under another segmentation pattern. The non-duplicative transport improvement is reassembled stream/frame state with ordered `PLH1 -> PLC1 -> PLA1 -> PLK1` validation and deliberate retry thresholding, not another content rule for the same magic.
-
-The reviewed rules do not semantically join higher-layer Core exchanges such as startup probe/response or preview enable/request/ack. Static `Q|PLUGIN|` staging and `Q|EXT|CLIENTCOREUPD|` are distinctive research surfaces, but no corresponding live transaction was captured; they should not become upstream raw-wire signatures without a positive fixture, phase/flow design and benign-prevalence testing. Core `auth_psk` can also wrap later messages in type `0x16`, defeating plaintext-only command matches.
-
-### Non-duplicative YARA boundary
-
-A reconstructed-Core candidate required PE structure plus all of:
+A Core-specific YARA rule is not currently shipped. A useful starting condition requires PE structure plus all three of:
 
 ```text
 PackClientCore.dll
@@ -188,7 +154,7 @@ PackPlugin.Registry.dll                 (UTF-16)
 PackPlugin_BrowserMgr_TryHandleExtRemote
 ```
 
-An offline Python implementation of this exact byte-string/PE condition matched the raw Core and all 352 retained memory records from eight Core processes while matching 0/86 mapped Launcher records and 0/30 surrounding/non-PE allocations. The check did not compile or execute a Core `.yar` file. It therefore establishes useful within-case candidate separation, not YARA-engine correctness or production validation. The candidate must be expressed as an actual rule and checked against broad benign and unrelated-malware corpora before publication as a production detector.
+This constellation separated the recovered Core from the Launcher and surrounding non-PE case material. It still requires testing against broad benign and unrelated-malware corpora before publication as a production rule.
 
 ## Historical network indicators
 
@@ -208,57 +174,56 @@ These values are historical pivots from public reporting and sandbox traffic. Th
 
 Use these values as supporting pivots rather than standalone detections.
 
-## Hash and filename IOCs
+## Artifact hashes and filenames
 
-| Artifact | SHA-256 | Confidence/source |
-|---|---|---|
-| Campaign ZIP | `7108FF29916D064216AA2ECE7FB395F1E3A73D12D19895BFFC0BD46806CBF85A` | Exact public/research lineage |
-| Staged IMG | `38EC1F5E23F65B10AE3027BEABFA0BF7F9FB686355A9E33C7E7E44E6A998E04C` | Exact artifact identity |
-| `Tax_Notice_23665.exe` | `93DD8B7B393289F88493596FAA4AE70054D9EB4FE47F2DD334F0C6BB5262F2A8` | Exact host identity |
-| `nvdaHelperRemote.dll` | `7295090C2CB63EBC43F932451971C41F9D015D2741E97AE3D9855F5AE87CFF94` | Exact carrier identity |
-| Embedded launcher B | `46B34789196733FAB62193F0AAEDB198B09F1362F9B10CA1DD70CF81D68B01AD` | Static reconstruction; derived bytes not published |
-| Reconstructed `PackClientCore.dll` | `4DE6EF8647FB4B599966A233740CB0514D1E71B8019A1A1792ED7E1E514EDF1C` | Eight identical historical PLK1 transfers |
-| Reconstructed Core `.text` | `F06FF7AB6D62B761344CAECBCC6857912F7543F43C0E5FF462D2174BADB0CA3F` | Exact match across 352 retained memory records from eight Core processes |
-| Protected injected package allocation | `E49581067CC2AA5ABD09C8DF42D6FBD87CB064A9363FE8B52D8369FD1C51FFE5` | Build-specific 417,792-byte memory identity across 12 July/August tasks; distinct from the 415,071-byte logical record |
+| Artifact | SHA-256 |
+|---|---|
+| Campaign ZIP | `7108FF29916D064216AA2ECE7FB395F1E3A73D12D19895BFFC0BD46806CBF85A` |
+| Staged IMG | `38EC1F5E23F65B10AE3027BEABFA0BF7F9FB686355A9E33C7E7E44E6A998E04C` |
+| `Tax_Notice_23665.exe` | `93DD8B7B393289F88493596FAA4AE70054D9EB4FE47F2DD334F0C6BB5262F2A8` |
+| `nvdaHelperRemote.dll` | `7295090C2CB63EBC43F932451971C41F9D015D2741E97AE3D9855F5AE87CFF94` |
+| Protected injected allocation (417,792 bytes) | `E49581067CC2AA5ABD09C8DF42D6FBD87CB064A9363FE8B52D8369FD1C51FFE5` |
+| Recovered Launcher B | `46B34789196733FAB62193F0AAEDB198B09F1362F9B10CA1DD70CF81D68B01AD` |
+| Compressed PLK1 Core object | `502A7D2D72BEFA9114417936A1B3C2DD8EC84FCD4AE9EF9A09FFF3604FC05CCE` |
+| Recovered `PackClientCore.dll` | `4DE6EF8647FB4B599966A233740CB0514D1E71B8019A1A1792ED7E1E514EDF1C` |
+| Recovered Core `.text` | `F06FF7AB6D62B761344CAECBCC6857912F7543F43C0E5FF462D2174BADB0CA3F` |
 
-Filename leads:
+Useful filename leads include:
 
-- `Tax_Notice_23665.exe`
-- `nvdaHelperRemote.dll`
-- `PackClientLauncher.exe`
-- `PackClientConsole.exe`
-- `PackClientCore.primary.dll.pblob`
-- `PackClientCore.primary.dll.json`
+```text
+Tax_Notice_23665.exe
+nvdaHelperRemote.dll
+PackClientLauncher.exe
+PackClientConsole.exe
+PackClientCore.primary.dll.pblob
+PackClientCore.primary.dll.json
+```
 
-Names are mutable and should not be the only detection condition.
+Hashes identify this lineage only, and filenames are mutable.
 
 ## ATT&CK mapping
 
-| Technique | Mapping | Confidence |
-|---|---|---|
-| [T1574.001 — DLL](https://attack.mitre.org/techniques/T1574/001/) | Signed host resolves malicious colocated helper DLL | Confirmed |
-| [T1053.005 — Scheduled Task/Job](https://attack.mitre.org/techniques/T1053/005/) | `NvSvc` at-logon persistence | Confirmed in runtime evidence |
-| [T1113 — Screen Capture](https://attack.mitre.org/techniques/T1113/) | Launcher implements the raw-BGRX `1RCP` worker; Core separately implements GDI/WIC capture and `PV10` JPEG serialization | Launcher implementation confirmed without a completed real exchange; Core implementation and 15 historical frames confirmed; no bridge between them established |
-| [T1134.002 — Create Process with Token](https://attack.mitre.org/techniques/T1134/002/) | Duplicated/retargeted token passed to `CreateProcessAsUserW` | Confirmed implementation |
-| [T1055.003 — Thread Execution Hijacking](https://attack.mitre.org/techniques/T1055/003/) | Carrier creates a suspended surrogate; Triage records remote package writes followed by primary-thread `SetThreadContext` and execution | Confirmed behavior; exact static write call site and instruction-pointer value remain unresolved; do not label it classic hollowing |
+| Technique | PackClient behavior |
+|---|---|
+| [T1574.001 — DLL Search Order Hijacking](https://attack.mitre.org/techniques/T1574/001/) | Signed host resolves the colocated malicious helper DLL |
+| [T1053.005 — Scheduled Task/Job](https://attack.mitre.org/techniques/T1053/005/) | `NvSvc` at-logon persistence |
+| [T1055.003 — Thread Execution Hijacking](https://attack.mitre.org/techniques/T1055/003/) | Remote package placement followed by primary-thread `SetThreadContext` and resume |
+| [T1134.002 — Create Process with Token](https://attack.mitre.org/techniques/T1134/002/) | Active-session path duplicates and retargets a token for `CreateProcessAsUserW` |
+| [T1113 — Screen Capture](https://attack.mitre.org/techniques/T1113/) | Launcher implements raw-BGRX `1RCP`; Core implements GDI/WIC capture and `PV10` JPEG output |
 
-## Triage order
+## Investigation checklist
 
-1. Preserve process/task/image-load metadata and hashes.
-2. Verify the target/signer/path of `\\NvSvc`, neighboring tasks, Startup Apps entries, Run/RunOnce values, and user/common Startup folders. The runtime record shows an enabled Startup Apps entry but does not identify its backing registration.
-3. Inspect bare/unusual `svchost.exe` instances for parent, user, current directory, modules, private executable memory, thread starts, and named mutants matching `PackClientLauncher.Session.*`.
-4. Search for the exact host/carrier pair and cache markers across the affected user profile.
-5. Decode already-acquired captures with the passive tools.
-6. Scope adjacent hosts using behavior joins first, historical hash/IOC matches second.
+1. Preserve the suspicious host, companion DLL, hashes, signatures, parentage, command lines, and image-load telemetry.
+2. Export `\NvSvc` task XML and verify its creator, principal, trigger, run level, target, signer, and neighboring persistence.
+3. Inspect bare `SysWOW64\svchost.exe` instances for their parent, user, current directory, private executable mappings, thread starts, and context changes.
+4. Search the affected user profile and registry for Launcher/Core cache markers and paired `.pblob`/`.json` files.
+5. Reassemble captured TCP streams and validate ordered Launcher framing before treating a magic string as PackClient.
+6. Scope adjacent systems using behavioral joins first and historical hashes or infrastructure second.
 
-## Rule limitations
+## Limitations
 
-- Suricata rules assume the listed prefix is contiguous in the normalized TCP stream; sensor configuration matters.
-- Existing object-magic coverage can miss split/coalesced sequences or lose the ordered state between Launcher and Core. Stream-aware state is the non-duplicative improvement.
-- Launcher and Core type `0x16` records use different ciphertext-length byte order; phase-blind parsing can misdecode Core traffic.
-- Sigma field names and command-line normalization vary by backend.
-- The included Launcher YARA rule identifies a code/data constellation, not a campaign actor. The proposed Core condition has only a Python-emulated within-case corpus result and is not yet an included YARA rule.
-- Sigma regex/backend semantics must be checked on the destination platform. The bare-svchost rule expects an absolute drive path; aliases, environment-variable paths, and missing parent telemetry are coverage limits.
-- The screenshot-worker rule accepts its distinctive token after renaming. Active-session tokens additionally require image/original-filename identity. Similarly named unrelated programs can still match.
-- Tests use synthetic positive/negative examples, not the original malware or a representative benign deployment corpus. Production false-positive and detection rates have not been measured.
-- Exact hashes cover this lineage only.
+- The included rules are hunting candidates; production false-positive and detection rates have not been measured.
+- The Suricata rules recognize plaintext Launcher prefixes but do not validate the complete handshake, PLK1 body, or Core phase.
+- The shipped YARA rule targets the recovered Launcher. The Core constellation above is not yet an included rule.
+- The `1RCP` worker was reconstructed and tested synthetically, but no complete real worker exchange was captured.
+- Exact hashes cover this lineage only; paths, filenames, task names, and infrastructure can change.
