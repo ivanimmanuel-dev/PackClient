@@ -190,6 +190,24 @@ PackPlugin_BrowserMgr_TryHandleExtRemote
 
 An offline Python implementation of this exact byte-string/PE condition matched the raw Core and all 352 retained memory records from eight Core processes while matching 0/86 mapped Launcher records and 0/30 surrounding/non-PE allocations. The check did not compile or execute a Core `.yar` file. It therefore establishes useful within-case candidate separation, not YARA-engine correctness or production validation. The candidate must be expressed as an actual rule and checked against broad benign and unrelated-malware corpora before publication as a production detector.
 
+## Historical network indicators
+
+These values are historical pivots from public reporting and sandbox traffic. They are not family-unique and should not be treated as currently active infrastructure.
+
+| Indicator | Source and context |
+|---|---|
+| `154[.]36[.]188[.]98:8080` | [Proofpoint](https://www.proofpoint.com/us/blog/threat-insight/carry-compromise-ta4922-packs-packclient): Launcher payload host |
+| `206[.]238[.]196[.]96:6666` | [Proofpoint](https://www.proofpoint.com/us/blog/threat-insight/carry-compromise-ta4922-packs-packclient): PackClient C2 passed to the Launcher |
+| `64[.]81[.]30[.]99` | [Proofpoint](https://www.proofpoint.com/us/blog/threat-insight/carry-compromise-ta4922-packs-packclient): July post-compromise infrastructure; also recovered as a Launcher configuration value |
+| `192[.]252[.]180[.]45:6666` | [Deception.Pro](https://blog.deception.pro/blog/new-packclient-hok-aug2026): PackClient C2 |
+| `154[.]36[.]188[.]201:443` | Successful July Launcher/Core sessions and later greeting-only retries |
+| `192[.]229[.]87[.]219:8383` and `:8027` | [Deception.Pro](https://blog.deception.pro/blog/new-packclient-hok-aug2026): attacker-operated ManageEngine Endpoint Central server, not PackClient C2 |
+| `gov12366[.]com` | [Proofpoint](https://www.proofpoint.com/us/blog/threat-insight/carry-compromise-ta4922-packs-packclient): initial delivery domain |
+| `opkjhblll[.]cc` | [Deception.Pro](https://blog.deception.pro/blog/new-packclient-hok-aug2026): follow-on ManageEngine package host |
+| `xzz[.]cam` | [Deception.Pro](https://blog.deception.pro/blog/new-packclient-hok-aug2026): secondary or fallback PackClient C2; also present in July sandbox traffic and Core plaintext |
+
+Use these values as supporting pivots rather than standalone detections.
+
 ## Hash and filename IOCs
 
 | Artifact | SHA-256 | Confidence/source |

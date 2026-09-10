@@ -100,7 +100,7 @@ No independently identifiable Core PE was found in this dump. Separate historica
 
 ## Historical July and September Triage sessions
 
-The historical July reports `260715-wd77daas7l` and `260716-dhnz7aft6z` each contain four complete Launcher PLK1 transfers. Their packet streams progress through `PLH1 -> PLC1 -> PLA1 -> PLK1`, reconstruct the same 985,088-byte `PackClientCore.dll`, and continue into bidirectional Core traffic including 15 `PV10` JPEG frames. See [Core and public-artifact audit](core-and-artifact-audit.md) for the transfer arithmetic, hashes and plugin boundaries.
+The historical July reports `260715-wd77daas7l` and `260716-dhnz7aft6z` each contain four complete Launcher PLK1 transfers. Their packet streams progress through `PLH1 -> PLC1 -> PLA1 -> PLK1`, reconstruct the same 985,088-byte `PackClientCore.dll`, and continue into bidirectional Core traffic including 15 `PV10` JPEG frames. See [Core analysis](core-analysis.md) for the recovery details and plugin behavior.
 
 The researcher-run September tasks answer a different question. In `260908-zwr5naybjb`, full-EXE execution persists `Tax_Notice_23665.exe`, while direct-DLL execution through `rundll32.exe …nvdahelperremote.dll,#1` causes the carrier to copy and persist the sandbox host as `rundll32.exe` without the DLL argument. The latter is a nonfunctional replay artifact of the direct-DLL invocation, not evidence of another PackClient variant. The one-hour `260909-abma8sab28` repeat reached the remote endpoint but received no application response; it records PLH1 retries without PLC1, PLK1, Core or plugin delivery.
 
