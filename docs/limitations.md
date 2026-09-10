@@ -1,43 +1,33 @@
 # Scope and limitations
 
-This publication reconstructs one PackClient launcher build and its independently recovered Core, supported by local runtime evidence and historical public sandbox artifacts.
+This report covers one PackClient Launcher build and the Core DLL recovered directly from its historical PLK1 traffic. Other PackClient builds and deployments may use different components, configuration, infrastructure, or protocol behavior.
 
-## Unresolved boundaries
+## Unresolved behavior
 
-| Boundary | Established | Not established |
-|---|---|---|
-| Core | Eight PLK1 transfers reconstruct the same 985,088-byte DLL; all exports, six local keys, ABI, application envelope, major subsystems and mapped `.text` identity recovered | Server implementation, deployed `auth_psk`, encrypted-Core capture, every internal function's semantic name, or a second Core build |
-| Plugins and Core update | Modern ABI and legacy loader, staged request grammar, protected stores, feature bindings and update command/storage recovered | Any delivered plugin binary, paired cache object, activated plugin mapping, or observed `CLIENTCOREUPD` transaction |
-| Screenshot peer | Worker command grammar, endpoint open and five-DWORD `1RCP` contract | Endpoint creator, initial launcher, peer identity or downstream pixel consumer |
-| Screenshot runtime | Real worker reached the capture/copy path; final attempt shows an AV and zero-byte READY timeout | Completed real exchange or causal failure diagnosis |
-| DIB lifetime | Deletion call precedes the later bits-pointer copy | Successful deletion return or causal use-after-free proof |
-| Launcher envelope keys | Separate 32-byte AES and HMAC key globals gated by a ready byte | Launcher key values, derivation, initializer/writer, activation time or successful encrypted receive; Core's separate `auth_psk` KDF is recovered |
-| In-memory launcher state | Package/A/B private mappings, exact PE/section anchors, A-entry thread, remote package writes and primary-thread context hijacking | Exact carrier write API/call site, installed instruction pointer, a second carrier build, or a complete native trace |
-| Network | Local sessions show timeout/failed SYNs; historical July captures show full Launcher handshake, PLK1 and Core traffic | Server implementation, September response cause, or plugin delivery |
-| Session continuity | Exact token, spawn and drift logic | Successful runtime active-session replacement |
-| Mutex export | Exact close-and-clear effect | External caller or invocation |
+- **Carrier injection:** Runtime evidence shows remote package writes followed by primary-thread context hijacking in a suspended `SysWOW64\svchost.exe`. The carrier's exact write call site and the instruction-pointer value installed by `SetThreadContext` remain unknown.
 
-## Reproduction gaps
+- **Launcher encryption:** The Launcher's type-`0x16` envelope format and AES/HMAC key storage were recovered, but no code initializing those keys was found. The Core uses a separate, fully recovered key derivation based on `auth_psk`.
 
-1. **Some PID 3696 event counts and memory comparisons relied on analyst-created helpers whose source and exact invocations were not retained.** This limits independent reproduction of those measurements.
-2. **The eight-byte package difference is not fully explained.** The recorded comparison contains three changed ranges totaling eight bytes. Three straightforward 6666-to-443 substitutions explain six of them; the remaining two require the original per-site before/after bytes to resolve.
+- **Plugins and Core updates:** The Core implements modern and legacy plugin loading, staged delivery, protected storage, activation, and update handling. No delivered plugin binary, paired plugin cache, activated plugin mapping, or completed Core-update transaction was recovered.
 
-## Runtime evidence limits
+- **Screenshot paths:** The Launcher's `1RCP` message format and framebuffer layout were recovered, but no complete exchange with the real worker was captured. The external peer, endpoint creator, downstream framebuffer consumer, and any bridge between Launcher `1RCP` and Core `PV10` remain unknown. The observed bitmap-deletion order alone does not prove a causal use-after-free.
 
-The PID 5812 Procmon capture spans 9.48 seconds and begins 44 minutes 45 seconds after the process started. It therefore does not cover the launch or the earlier connection attempt.
+- **Active-session handoff:** Token selection, process creation, argument handling, and session-drift behavior were recovered from the Launcher. No successful replacement into another interactive session was observed.
 
-The PID 3696 session contains multiple interrupted launches and manual intervention, so its observations are treated as scoped events rather than one uninterrupted baseline. Its packet capture has no PID metadata; Process Explorer directly associates PID 3696 with specific `SYN_SENT` sockets, but that does not assign every captured packet to the process.
+- **Server behavior:** Historical July traffic contains successful authentication, Core delivery, and post-delivery commands. Later runs sent valid `PLH1` greetings but received no application response. The server implementation and the reason for that later non-response are unknown.
 
-Each original local dump is a point-in-time user-mode capture and did not independently expose Core. The later historical Triage packet/memory audit recovers Core separately; that does not retroactively place Core into either original local dump.
+## Runtime and capture limits
 
-## Tool and detection validation
+The local runtime sessions provide point-in-time evidence rather than complete execution traces. One Procmon capture began well after process creation, while another session included interrupted and manually initiated launches.
 
-Synthetic tests validate framing, cryptography, parsing, reassembly, rejected-input handling and detector mechanics against controlled fixtures. A filtered historical positive flow now validates Launcher dissector recognition, but does not measure production detection accuracy.
+The local packet capture does not contain process identifiers. Process Explorer associated specific `SYN_SENT` sockets with the PackClient surrogate, but this does not attribute every captured packet to that process.
 
-The [screenshot IPC kit](screenshot-ipc-validation.md) validates the reconstructed `1RCP` framing and synthetic image serialization. It does not reproduce GDI capture, the observed worker failure or a completed exchange with the real worker.
+Neither local process dump contained an independently identifiable Core image. The Core was recovered separately from historical Triage traffic and memory, so its presence must not be retroactively attributed to those local dumps.
 
-Established historical PackClient captures are available, but no representative benign/malicious corpus was measured, so sensitivity, specificity and false-positive rates remain unmeasured. Parsing and resource limits are documented in [tooling](tooling.md), with operational detection limits in [detection guidance](detection-guide.md).
+## Detection and tooling limits
 
-## Generalization
+The synthetic tests exercise framing, cryptography, reassembly, malformed-input handling, screenshot-message serialization, and detection-rule mechanics. They do not reproduce the complete malware execution chain or establish production detection accuracy.
 
-No second carrier variant was acquired for byte-level comparison. These conclusions therefore apply to the [pinned build](launcher-architecture.md), not every PackClient deployment.
+The included rules are experimental hunting candidates. Their sensitivity, specificity, and false-positive rates have not been measured against representative benign and unrelated-malware corpora. The Suricata rules recognize plaintext Launcher prefixes but do not validate the complete session or Core phase.
+
+Additional technical context is available in [Evidence](evidence.md), [Runtime analysis](runtime-analysis.md), [Screenshot IPC](screenshot-ipc.md), [Launcher protocol](launcher-protocol.md), and the [Detection guide](detection-guide.md).
