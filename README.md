@@ -88,7 +88,7 @@ The optional [synthetic IPC kit](docs/screenshot-ipc-validation.md) exercises th
 
 ## Detection
 
-The repository ships experimental Sigma and Suricata detections plus separate YARA rules for the recovered Launcher and Core. Engine-backed regression tests and retained-artifact checks verify their mechanics; production accuracy has not been measured. See the [Detection Guide](docs/detection-guide.md).
+The repository includes experimental Sigma and Suricata detections, plus separate YARA rules for the recovered Launcher and Core. Tests run each rule through its native engine, and the YARA rules were also checked against recovered binaries and memory mappings. Production detection and false-positive rates have not been established. See the [Detection Guide](docs/detection-guide.md).
 
 ## Scope and Limitations
 
