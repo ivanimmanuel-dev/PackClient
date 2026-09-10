@@ -10,7 +10,7 @@ The worker is selected with:
 PackClientLauncher.exe /scr_cap_worker <endpoint-utf8> [monitor-index]
 ```
 
-Main calls the worker dispatcher at B RVA `0x45C3 -> 0xA38E` before the normal Core/session path. The body requires at least three arguments, exact `argv[1] == /scr_cap_worker`, and non-null `argv[2]`. Optional `argv[3]` supplies the monitor index; default is zero. The wrapper passes the worker result to `ExitProcess`.
+Main calls the worker dispatcher at B RVA `0x45C3 -> 0xA38E` before the normal Core/session path. The handler requires at least three arguments, exact `argv[1] == /scr_cap_worker`, and non-null `argv[2]`. Optional `argv[3]` supplies the monitor index; default is zero. The wrapper passes the worker result to `ExitProcess`.
 
 The worker inherits its existing token, integrity level, session, environment and parent relationship. This branch does not create another process or change session context.
 
@@ -31,13 +31,13 @@ B opens the supplied path once with `OPEN_EXISTING`; endpoint creation and peer 
 
 Named-pipe use is strongly inferred from the duplex protocol and diagnostics. `CreateFileW` also accepts other path types, so this call alone does not prove a pipe namespace. [Microsoft's CreateFileW contract](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew) and [named-pipe client documentation](https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-client) describe the relevant API behavior.
 
-No worker-launch or peer-creation path was found outside B in the recovered components. Generic argument rebuilding preserves `/scr_cap_worker`, its endpoint and optional monitor index across relaunches, but does not create the initial worker invocation.
+No worker-launch or peer-creation path was found outside B in the recovered components. The session-relaunch logic preserves `/scr_cap_worker`, its endpoint and optional monitor index across relaunches, but does not create the initial worker invocation.
 
 ## Header and message semantics
 
 Every message starts with five little-endian DWORDs, exactly 20 bytes. Magic is `0x50435231`, wire bytes `31 52 43 50` (`1RCP`).
 
-| Offset | Field | READY, type 1 | Frame, type 2 | Recapture, type 3 | Exit, type 5 |
+| Offset | Field | Worker → peer: READY | Worker → peer: Frame | Peer → worker: Recapture | Peer → worker: Exit |
 |---:|---|---|---|---|---|
 | `0x00` | Magic | `1RCP` | `1RCP` | `1RCP` | `1RCP` |
 | `0x04` | Type | 1 | 2 | 3 | 5 |
@@ -58,9 +58,9 @@ Reads and writes loop until the requested byte count completes. These operations
 
 ## Desktop and pixel layout
 
-The attachment path opens `winsta0`, temporarily selects the window station, attempts `OpenInputDesktop`, falls back to `Winlogon`, selects the desktop, and restores/closes handles after use. It depends on the inherited context having the required access.
+Before capturing, the worker opens `winsta0`, temporarily selects that window station, attempts to open the input desktop, and falls back to `Winlogon`. It restores and closes the handles after use and depends on its inherited context having the required access.
 
-Capture at `0x9EB0` enumerates monitor rectangles. A valid requested index wins; otherwise it selects index zero. Positive dimensions are calculated from the selected rectangle:
+Capture at `0x9EB0` enumerates monitor rectangles. The worker uses the requested monitor when the index is valid; otherwise it falls back to monitor zero. Positive dimensions are calculated from the selected rectangle:
 
 ```text
 width        = right - left
@@ -73,11 +73,11 @@ The DIB header is 40 bytes, with positive width, negative height, planes 1, bit 
 
 IA-32 multiplication/shift calculates the allocation length; no separate overflow guard was observed.
 
-Within B the framebuffer dataflow ends at `WriteFile` on the supplied handle. No B-local edge reaches Winsock, PLK1, the lower encrypted transport, JPEG or `PV10`. The separately recovered Core contains its own GDI/WIC `PV10` JPEG producer, but no recovered edge connects this raw-BGRX worker to that Core path. Any bridge still belongs to the unidentified external endpoint peer.
+Within B the framebuffer dataflow ends at `WriteFile` on the supplied handle. No B-local edge reaches Winsock, PLK1, the lower encrypted transport, JPEG or `PV10`. Historical Core traffic contains 15 `PV10` JPEG frames consistent with Core's built-in GDI/WIC producer. No recovered code connects that producer to the Launcher's raw-BGRX `1RCP` worker; any bridge would belong to the unidentified external endpoint peer.
 
 ## DIB lifetime hazard and observed failure
 
-The recovered call order is `CreateDIBSection`, select bitmap, `BitBlt`, restore old selection, `DeleteObject`, DC cleanup, then copy from the saved bits pointer. This creates a plausible lifetime hazard because the saved bits pointer is used after the deletion call. Microsoft's [CreateDIBSection](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-createdibsection) contract ties the bits to the bitmap's lifetime, while [DeleteObject](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-deleteobject) can fail. A breakpoint before `DeleteObject` does not establish that deletion succeeded.
+The recovered call order is `CreateDIBSection`, select bitmap, `BitBlt`, restore old selection, `DeleteObject`, DC cleanup, then copy from the saved bits pointer. Microsoft's [CreateDIBSection](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-createdibsection) contract ties the bits to the bitmap's lifetime, while [DeleteObject](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-deleteobject) can fail.
 
 | Attempt | Captured observation |
 |---|---|
@@ -91,6 +91,6 @@ These were separate debugger sessions and included manual intervention, so they 
 
 Relevant sites: `CreateDIBSection` at `0xA010`; deletion near `0xA066`; copy near `0xA0F9/0xA0FE`; final recorded fault `0xA567`.
 
-The static call order exposes a plausible DIB lifetime defect. The runtime attempts show a later copy from a saved bits pointer and a separate worker fault, but do not establish a causal use-after-free chain.
+The call order creates a possible use-after-free if `DeleteObject` succeeds, because the saved bits pointer is copied afterward. The debugger sessions confirm the later copy and a separate worker fault, but they do not record the deletion result or establish that the fault was caused by the bitmap lifetime.
 
 The [synthetic validation appendix](screenshot-ipc-validation.md) reproduces the `1RCP` framing and BGRX serialization with a local peer and simulator. A complete exchange with the real worker was not captured. See [evidence](evidence.md) and [limitations](limitations.md) for the remaining boundaries.
