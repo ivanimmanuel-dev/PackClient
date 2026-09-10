@@ -163,8 +163,6 @@ Each transfer uses eleven ordered type-`0x15` chunk records: sequences 0–9 car
 
 The captures show the ordered plaintext handshake `PLH1 -> PLC1 -> PLA1 -> PLK1` followed by bidirectional Core traffic.
 
-### Type-0x16 is phase-dependent
+### Launcher/Core type-`0x16` distinction
 
-The recovered Core has its own authenticated type-`0x16` format with a little-endian ciphertext length. When local `auth_psk` is nonempty, it derives independent keys as `SHA256("PACKAPP|AES256|v1|" || raw_psk)` and `SHA256("PACKAPP|HMAC|v1|" || raw_psk)`. An empty PSK clears the ready flag and both keys. This differs from the Launcher's pre-Core type-`0x16` envelope above, whose ciphertext length is big-endian and whose key-state writer remains unresolved.
-
-Launcher and Core therefore use different type-`0x16` layouts despite sharing the same outer message type. Full Core behavior is described in [Core analysis](core-analysis.md).
+Type `0x16` is phase-specific. The Launcher uses a big-endian ciphertext length and has unresolved key initialization, while the Core uses a little-endian length and its own recovered key derivation. See [Core analysis](core-analysis.md).
