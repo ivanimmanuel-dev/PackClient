@@ -27,6 +27,6 @@ Three public Triage analyses supplied historical runtime and network evidence:
 | Screenshot paths | Reconstructed the worker-side `1RCP` interface, including its five-DWORD header and top-down BGRX framebuffer. Core's separate `PV10` JPEG producer was also recovered; no direct bridge between the two paths was established. |
 | Session continuity | Recovered active-session selection, token handling, bootstrap construction, process-creation retries, and session-drift replacement logic. |
 | Persistence | Two September sandbox runs distinguished the normal full-EXE scheduled-task path from the direct-DLL `rundll32.exe` behavior produced by sandbox execution. |
-| Defensive tooling | Added passive raw-stream and packet-capture decoders, a Wireshark Lua dissector, synthetic protocol fixtures, regression tests, and detection candidates with documented false-positive boundaries. |
+| Defensive tooling | Added passive Launcher/Core stream decoding, verified PLK1 and `PV10` extraction with provenance manifests, a phase-aware Wireshark Lua dissector, synthetic protocol fixtures, engine-backed regression tests, and separate Launcher/Core YARA rules. |
 
 Artifact identities and supporting observations are collected in [Evidence](evidence.md). Remaining unknowns and limits are documented in [Scope and limitations](limitations.md).

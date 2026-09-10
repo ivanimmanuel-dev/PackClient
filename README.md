@@ -74,9 +74,9 @@ flowchart TD
 
 | Interface | Purpose |
 |---|---|
-| `tools/packclient_decode.py` | Decode supplied raw streams into structured JSON |
-| `tools/packclient_pcap_decode.py` | Decode supplied PCAP/PCAPNG into per-flow timelines |
-| `tools/wireshark/packclient.lua` | Display protocol metadata in Wireshark/TShark |
+| `tools/packclient_decode.py` | Decode Launcher or Core raw streams into structured JSON |
+| `tools/packclient_pcap_decode.py` | Reassemble PCAP/PCAPNG traffic and optionally extract verified PLK1/Core and `PV10` artifacts with a provenance manifest |
+| `tools/wireshark/packclient.lua` | Display Launcher/Core phase, handshake, PLK1, envelope, command and `PV10` metadata in Wireshark/TShark |
 
 The Python CLIs require Python 3.11–3.13 and the standard library. LZ4 support and detection-engine tests have separate pinned optional dependencies. [The quickstart](docs/tooling.md#minimal-example) creates a deterministic synthetic input without any malware.
 
@@ -88,7 +88,7 @@ The optional [synthetic IPC kit](docs/screenshot-ipc-validation.md) exercises th
 
 ## Detection
 
-The Sigma, Suricata and YARA rules are included as experimental detection candidates with regression coverage. Production accuracy has not been measured.
+The repository ships experimental Sigma and Suricata detections plus separate YARA rules for the recovered Launcher and Core. Engine-backed regression tests and retained-artifact checks verify their mechanics; production accuracy has not been measured. See the [Detection Guide](docs/detection-guide.md).
 
 ## Scope and Limitations
 

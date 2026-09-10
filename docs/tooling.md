@@ -1,18 +1,18 @@
 # Passive analysis tools
 
-The repository includes two Python command-line tools and a Wireshark dissector for Launcher traffic. The Python tools share separate protocol and packet-capture modules. They parse Launcher framing, authentication, encrypted-envelope metadata, and PLK1 delivery without executing samples or opening network connections.
+The repository includes two offline Python command-line tools and a Wireshark Lua dissector for PackClient Launcher and Core traffic. They parse raw streams or captures without executing samples, opening sockets, resolving domains, or replaying traffic. The capture tool can also export verified PLK1 plaintext and validated `PV10` JPEGs with a provenance manifest.
 
-These tools do not decode post-delivery Core traffic or Core's separate type-`0x16` format. Launcher wire details are documented in [Launcher protocol](launcher-protocol.md), with current scope and limits in [Scope and limitations](limitations.md).
+Launcher wire details are documented in [Launcher protocol](launcher-protocol.md), Core messages and encryption in [Core analysis](core-analysis.md), and remaining boundaries in [Scope and limitations](limitations.md).
 
 ## Interfaces and requirements
 
 | Interface | Input | Output | Requirements |
 |---|---|---|---|
-| [`packclient_decode.py`](../tools/packclient_decode.py) | Ordered raw byte stream from a file or standard input | JSON framing, handshake, envelope and PLK1 verification metadata | Python 3.11–3.13; standard library |
-| [`packclient_pcap_decode.py`](../tools/packclient_pcap_decode.py) | PCAP or PCAPNG from a file or standard input | Per-flow text timeline with direction, reassembly and verification status | Python 3.11–3.13; standard library |
-| [`packclient.lua`](../tools/wireshark/packclient.lua) | TCP data in a capture opened by Wireshark/TShark | Framing, validated object labels, encrypted-envelope metadata and malformed-object expert fields | Wireshark/TShark with Lua support |
+| [`packclient_decode.py`](../tools/packclient_decode.py) | Ordered raw byte stream from a file or standard input | JSON for Launcher/Core framing, handshake, envelopes, commands, PLK1 and `PV10` | Python 3.11–3.13; standard library |
+| [`packclient_pcap_decode.py`](../tools/packclient_pcap_decode.py) | PCAP or PCAPNG from a file or standard input | Reassembled per-flow timeline; optional verified PLK1/`PV10` files and `manifest.json` | Python 3.11–3.13; standard library |
+| [`packclient.lua`](../tools/wireshark/packclient.lua) | TCP data in a capture opened by Wireshark/TShark | Launcher/Core phase, handshake and PLK1 fields, type-`0x16` format, Core commands, `PV10`, and malformed-object diagnostics | Wireshark/TShark with Lua support |
 
-[`packclient_proto.py`](../tools/packclient_proto.py) and [`packclient_pcap.py`](../tools/packclient_pcap.py) provide the shared implementation. AES-256-CBC is implemented without third-party dependencies and checked against [NIST FIPS 197](https://doi.org/10.6028/NIST.FIPS.197) and [SP 800-38A](https://doi.org/10.6028/NIST.SP.800-38A) known-answer vectors. Optional PLK1 raw-block LZ4 decoding uses `lz4==4.4.5`:
+[`packclient_proto.py`](../tools/packclient_proto.py) and [`packclient_pcap.py`](../tools/packclient_pcap.py) provide the shared decoding, while [`packclient_artifacts.py`](../tools/packclient_artifacts.py) performs bounded PE inspection and atomic artifact export. AES-256-CBC is implemented without third-party dependencies and checked against [NIST FIPS 197](https://doi.org/10.6028/NIST.FIPS.197) and [SP 800-38A](https://doi.org/10.6028/NIST.SP.800-38A) known-answer vectors. Optional PLK1 raw-block LZ4 decoding uses `lz4==4.4.5`:
 
 ```sh
 python -m pip install -r requirements/lz4.txt
@@ -47,10 +47,13 @@ Expected output includes `status: parsed`, `stream_length: 40`, `frame_count: 1`
 python -B tools/packclient_decode.py stream.dat
 python -B tools/packclient_decode.py client-stream.dat --direction client-to-server
 python -B tools/packclient_decode.py server-stream.dat --direction server-to-client
+python -B tools/packclient_decode.py core-stream.dat --phase core
 python -B tools/packclient_decode.py stream.dat --no-lz4
 ```
 
 Use `-` instead of a filename for binary standard input. Exit code 0 means the stream parsed; inspect verification and reassembly fields for incomplete transfers or unauthenticated objects. Rejected or malformed input returns 2.
+
+Raw streams default to `--phase launcher`. Select `--phase core` for a standalone Core stream or `--phase auto` when the data includes enough validated structure to infer the phase. A phase-ambiguous type-`0x16` envelope is rejected until the phase is selected explicitly.
 
 Canonical directions enforce PLH1/PLA1 as client-to-server and PLC1 as server-to-client. A raw invocation does not reconstruct TCP or retain handshake state across separate invocations. For separate directional byte streams, share a `HandshakeContext`:
 
@@ -73,9 +76,17 @@ Missing PLC1 context produces `unverifiable: PLC1 context absent`; an incorrect 
 ```sh
 python -B tools/packclient_pcap_decode.py capture.pcapng
 python -B tools/packclient_pcap_decode.py capture.pcap --client-endpoint 192.0.2.10:49152
+python -B tools/packclient_pcap_decode.py capture.pcapng --extract-plk1 --output-dir recovered
+python -B tools/packclient_pcap_decode.py capture.pcapng --extract-plk1 --extract-pv10 --output-dir recovered
 ```
 
 `--client-endpoint` is a direction hint and accepts numeric addresses only; IPv6 uses `[address]:port`. Overrides that contradict validated protocol-role evidence are rejected. No port is treated as inherently PackClient.
+
+Capture decoding defaults to `--phase auto`. After a verified final PLK1 chunk, automatic decoding preserves the matching four-byte chunk acknowledgement as Launcher traffic, then classifies subsequent frames as Core. Plaintext Core commands are labelled conservatively, and validated type-18 `PV10` messages expose JPEG size and SHA-256 metadata without printing the image bytes.
+
+Artifact extraction requires `--output-dir` and at least one extraction switch. PLK1 output is written only after sequence, size, optional raw-LZ4 decompression, and final SHA-256 verification. Known Core bytes receive a `PackClientCore-<digest>.dll` name; other verified PLK1 objects remain `.bin`. `PV10` output requires an exact declared length and JPEG SOI/EOI markers. Duplicate objects are written once with each observation retained in `manifest.json`.
+
+The manifest records the capture format, size and SHA-256; artifact sizes and hashes; PLK1 header and PE metadata; flow endpoints; contributing frames and packet indexes; and repeated observations. A rejected flow or failed transfer is never exported. Writes use temporary files followed by atomic replacement; a conflicting existing file is not overwritten and leaves no temporary file behind.
 
 The parser handles classic PCAP in either byte order, microsecond/nanosecond timestamps, and PCAPNG section/interface/enhanced/simple packet blocks. Supported link types include Ethernet with VLAN tags, raw IP, BSD null/loopback, Linux cooked v1/v2, and explicit IPv4/IPv6. Supported IPv6 extension headers are walked; IP fragments are excluded rather than reassembled.
 
@@ -91,16 +102,19 @@ Unsupported cases include reused four-tuples representing separate connection in
 
 Both Python CLIs accept `--psk-text`, `--psk-hex`, `--use-default-psk`, `--aes-key-hex`, `--envelope-hmac-key-hex`, and `--no-lz4`. Each envelope key must be exactly 32 bytes, represented by 64 hexadecimal characters.
 
-| Supplied material | Available verification |
+| Phase and supplied material | Available verification |
 |---|---|
-| No keys | Structural parsing and plaintext PLK1 checks where complete bytes exist |
-| Handshake PSK | PLA1 HMAC when matching PLH1 and PLC1 context exists |
-| Envelope HMAC key | Type-`0x16` authentication |
-| AES key and envelope HMAC key | Authentication before AES-256-CBC decryption, strict padding and inner type `0x15` |
+| No keys | Structural parsing, plaintext Core labels, `PV10` validation, and PLK1 checks where complete bytes exist |
+| Launcher handshake PSK | PLA1 HMAC when matching PLH1 and PLC1 context exists |
+| Launcher envelope HMAC key | Launcher type-`0x16` authentication |
+| Launcher AES and envelope HMAC keys | Authentication before AES-256-CBC decryption, strict padding, and inner type `0x15` |
+| Core `auth_psk` | Domain-separated SHA-256 key derivation, authentication before decryption, strict padding, and inner Core-message redispatch |
 
-The fallback `pack-launch-dev-psk` is used only with `--use-default-psk`. No environment variable is read implicitly, and no Launcher envelope key is derived from the handshake PSK. Launcher envelope-key initialization remains unresolved, so those keys must be supplied independently. These options apply to the Launcher envelope. The tools do not decode Core's separate type-`0x16` format or derive its keys; that format is documented in [Core analysis](core-analysis.md). AES decryption is attempted only after HMAC verification succeeds.
+The fallback `pack-launch-dev-psk` is used only with `--use-default-psk`. No environment variable is read implicitly, and no Launcher envelope key is derived from the handshake PSK. Launcher envelope-key initialization remains unresolved, so those keys must be supplied independently through `--aes-key-hex` and `--envelope-hmac-key-hex`.
 
-PLK1 verification requires a valid 56-byte header, supported version, zero-based chunk sequence, exact sizes and a matching final SHA-256. Effective sizes are bounded at 128 MiB. Version 2 raw-block LZ4 output is unverifiable when the optional dependency is unavailable or decoding is disabled. The CLIs do not write recovered payloads to disk.
+Core's separate type-`0x16` format is selected with `--phase core` or a validated automatic phase transition. `--core-psk-text` and `--core-psk-hex` supply the recovered `auth_psk` input from which the tool derives independent AES and HMAC keys. Launcher keys and the Core PSK are never treated as interchangeable. Both envelope paths verify HMAC before attempting AES-CBC decryption.
+
+PLK1 verification requires a valid 56-byte header, supported version, zero-based chunk sequence, exact sizes and a matching final SHA-256. Effective sizes are bounded at 128 MiB. Version 2 raw-block LZ4 output is unverifiable when the optional dependency is unavailable or decoding is disabled. Only the capture CLI writes verified payloads, and only when extraction is explicitly requested.
 
 ## Wireshark and TShark
 
@@ -119,10 +133,13 @@ packclient
 packclient.object.magic == "PLC1"
 packclient.object.magic == "PLK1"
 packclient.message_type == 0x16
+packclient.phase == "Core"
+packclient.core.command contains "SCR|PREVIEW"
+packclient.pv10.magic == "PV10"
 packclient.envelope.ciphertext_length == 16
 ```
 
-The dissector presents type-`0x16` metadata but does not verify HMAC, decrypt or reassemble PLK1 payloads. Unknown message types remain unlabeled.
+The dissector distinguishes Launcher big-endian and Core little-endian type-`0x16` layouts, labels the observed Core message types and command text, and validates `PV10` length plus JPEG boundaries. It does not accept keys, verify HMAC, decrypt envelopes, reconstruct PLK1 plaintext, or write artifacts; use the Python capture tool for those operations. Unknown or structurally invalid objects remain conservatively labelled or receive malformed-object diagnostics.
 
 ## Tests
 
@@ -130,8 +147,10 @@ The dissector presents type-`0x16` metadata but does not verify HMAC, decrypt or
 python -B -m unittest discover -s tests -v
 ```
 
-The standard-library suite covers framing, direction/context handling, authentication failure before decryption, AES known-answer vectors, padding, PLK1 sequence/size/hash validation, TCP reassembly, capture-container bounds and CLI outputs.
+The Python suite contains 124 tests covering framing, direction and phase state, both authenticated-envelope formats, the Core KDF, authentication failure before decryption, AES known-answer vectors, padding, PLK1 sequence/size/hash validation, extraction and atomic output, Core command labels, `PV10`, TCP reassembly, capture-container bounds, CLI output, Wireshark/TShark integration, and detection rules. Optional engines are skipped locally when unavailable.
 
-The [validation workflow](../.github/workflows/validate.yml) runs the maintained Python suite on Python 3.11–3.13 and exercises optional engines in a separate job.
+The [validation workflow](../.github/workflows/validate.yml) runs the Python suite on Python 3.11–3.13. Its engine-backed job requires LZ4, YARA, pySigma, Suricata, and TShark so those checks cannot silently skip. A separate Windows PowerShell 5.1 job runs the 15-test synthetic screenshot IPC suite.
+
+Local acceptance checks against eight retained historical captures recovered the same 985,088-byte Core from every complete PLK1 transfer, identified the final sequence-10 chunk acknowledgement, labelled post-delivery Core traffic, and extracted 15 valid `PV10` JPEGs. Those historical capture files are not committed as CI fixtures.
 
 Detection-engine validation is documented in the [detection guide](detection-guide.md). The separate [screenshot IPC validation](screenshot-ipc-validation.md) covers the local `1RCP` peer/simulator.

@@ -5,8 +5,8 @@ PackClient is best detected by joining its sideload, persistence, surrogate-proc
 The repository provides:
 
 - Sigma rules for the observed `NvSvc` task, a bare 32-bit `svchost.exe`, screenshot-worker mode, and active-session mode;
-- a YARA rule for the recovered Launcher's marker constellation;
-- Suricata rules that reproduce the plaintext Launcher handshake markers for local regression testing.
+- YARA rules for the recovered Launcher and Core marker constellations;
+- Suricata regression rules for plaintext Launcher markers, challenge-to-PLK1 progression, an observed Core startup response, and startup-to-`PV10` correlation.
 
 The rules under [`detections/`](../detections) are experimental. Their tests verify matching behavior but do not establish production accuracy.
 
@@ -125,7 +125,7 @@ The Launcher handshake is plaintext inside the outer PackClient frame:
 
 The first four bytes encode the outer body length and frame prefix. Prefer reassembled stream logic that validates the ordered `PLH1 → PLC1 → PLA1 → PLK1` exchange over isolated magic-string alerts. Normal TCP segmentation, coalescing, retransmission, and reordering can defeat packet-size assumptions.
 
-The repository Suricata rules match the first three prefixes plus wire version 1 in reassembled TCP data.
+The first three repository Suricata rules match the version-1 `PLH1`, `PLC1`, and `PLA1` prefixes in reassembled TCP data. A fourth correlates a `PLC1` challenge with a later version-1-or-2 `PLK1` header on the same server-to-client stream. Core rules match the observed startup-response structure and require that startup state before alerting on a `PV10` JPEG response. The standalone markers overlap existing Emerging Threats coverage and are retained as local regression checks; the correlated rules exercise the additional state established by this research.
 Core screenshot responses use type 18 with:
 
 ```text
@@ -134,9 +134,9 @@ PV10 || LE32(JPEG length) || JPEG bytes
 
 Launcher and Core both use outer type `0x16`, but the Launcher stores ciphertext length as big-endian while Core uses little-endian. Phase-aware inspection is required to interpret that shared type correctly, and encrypted Core traffic will hide plaintext commands.
 
-## Core YARA candidate
+## YARA rules and validation
 
-A Core-specific YARA rule is not currently shipped. A useful starting condition requires PE structure plus all three of:
+The shipped Core rule requires PE structure plus all three of:
 
 ```text
 PackClientCore.dll
@@ -153,7 +153,9 @@ PackPlugin.Registry.dll                 (UTF-16)
 PackPlugin_BrowserMgr_TryHandleExtRemote
 ```
 
-This constellation separated the recovered Core from the Launcher and surrounding non-PE case material. It still requires testing against broad benign and unrelated-malware corpora before publication as a production rule.
+The compiled Core rule matched the recovered DLL and all 352 retained Core memory mappings. It matched none of 116 retained Launcher/control allocations. The compiled Launcher rule matched all 86 retained Launcher mappings and none of 383 other retained objects.
+
+Both rules were also scanned across more than 30,000 PE files from local Windows system directories and installed applications, with zero matches. This is a useful preliminary benign check, not an industry-scale prevalence study: no representative unrelated-malware or enterprise-software corpus was available. Both rules therefore remain experimental.
 
 ## Historical network indicators
 
@@ -222,7 +224,7 @@ Hashes identify this lineage only, and filenames are mutable.
 ## Limitations
 
 - The included rules are hunting candidates; production false-positive and detection rates have not been measured.
-- The Suricata rules recognize plaintext Launcher prefixes but do not validate the complete handshake, PLK1 body, or Core phase.
-- The shipped YARA rule targets the recovered Launcher. The Core constellation above is not yet an included rule.
+- The Suricata rules validate specific Launcher and Core structures and correlations, not a complete authenticated session or PLK1 body.
+- Both YARA rules remain experimental despite matching the retained case material and producing no hits in the preliminary local benign scan.
 - The `1RCP` worker was reconstructed and tested synthetically, but no complete real worker exchange was captured.
 - Exact hashes cover this lineage only; paths, filenames, task names, and infrastructure can change.

@@ -26,8 +26,10 @@ Neither local process dump contained an independently identifiable Core image. T
 
 ## Detection and tooling limits
 
-The synthetic tests exercise framing, cryptography, reassembly, malformed-input handling, screenshot-message serialization, and detection-rule mechanics. They do not reproduce the complete malware execution chain or establish production detection accuracy.
+The automated tests exercise framing, both phase-specific encryption formats, reassembly, verified extraction, malformed-input handling, screenshot-message serialization, the Wireshark dissector, and detection-rule mechanics. Local checks against retained historical captures and memory artifacts additionally exercised real PLK1/Core recovery, Core traffic, `PV10`, and both compiled YARA rules. They do not reproduce the complete malware execution chain or establish production detection accuracy.
 
-The included rules are experimental hunting candidates. Their sensitivity, specificity, and false-positive rates have not been measured against representative benign and unrelated-malware corpora. The Suricata rules recognize plaintext Launcher prefixes but do not validate the complete session or Core phase.
+The Launcher YARA rule matched 86 of 86 retained Launcher mappings and none of 383 other retained objects. The Core rule matched the recovered DLL and 352 of 352 retained Core mappings, with no matches among 116 Launcher/control allocations. Both produced zero matches in a preliminary scan of more than 30,000 local Windows and installed-application PE files. No representative unrelated-malware or enterprise corpus was tested, so the rules remain experimental and production false-positive rates are unknown.
+
+The Suricata rules cover plaintext Launcher candidates, challenge-to-PLK1 progression, an observed Core startup response, and startup-to-`PV10` correlation. They do not validate a complete authenticated session, reconstruct the PLK1 body, or expose commands hidden by Core encryption.
 
 Additional technical context is available in [Evidence](evidence.md), [Runtime analysis](runtime-analysis.md), [Screenshot IPC](screenshot-ipc.md), [Launcher protocol](launcher-protocol.md), and the [Detection guide](detection-guide.md).
