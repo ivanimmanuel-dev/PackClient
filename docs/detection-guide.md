@@ -125,8 +125,7 @@ The Launcher handshake is plaintext inside the outer PackClient frame:
 
 The first four bytes encode the outer body length and frame prefix. Prefer reassembled stream logic that validates the ordered `PLH1 → PLC1 → PLA1 → PLK1` exchange over isolated magic-string alerts. Normal TCP segmentation, coalescing, retransmission, and reordering can defeat packet-size assumptions.
 
-The repository Suricata rules match the first three prefixes plus wire version 1 in reassembled TCP data. They intentionally overlap public Emerging Threats coverage and serve as regression examples, not novel or complete protocol detectors.
-
+The repository Suricata rules match the first three prefixes plus wire version 1 in reassembled TCP data.
 Core screenshot responses use type 18 with:
 
 ```text
