@@ -6,7 +6,7 @@
     "caption": "The image summary identifies the imported PE and its PackClientLauncher PDB name. The recorded SHA-256 identifies recovered image B.",
     "grade": "static",
     "source": "Ghidra program information for recovered image B.",
-    "reference": "references/architecture.html"
+    "reference": "references/launcher-architecture.html"
   },
   {
     "id": "worker-open",
@@ -33,7 +33,7 @@
     "caption": "1. Compute the envelope MAC. 2. Compare the received tag. 3. Enter the decrypt helper only after the comparison succeeds. Helper roles are established in the transport analysis; the screenshot shows their control-flow order.",
     "grade": "static",
     "source": "Ghidra decompilation of the authenticated receive path in image B.",
-    "reference": "references/protocol-reference.html"
+    "reference": "references/launcher-protocol.html"
   },
   {
     "id": "session-spawn",
@@ -51,7 +51,7 @@
     "caption": "Process Monitor records parent PID 2116 creating svchost PID 3696 and schtasks PID 4600; schtasks then creates conhost PID 8248. SUCCESS is the Process Create result, not the child's exit code.",
     "grade": "runtime",
     "source": "Process Monitor process-creation rows from the PID 3696 evidence set.",
-    "reference": "references/runtime-validation.html"
+    "reference": "references/runtime-analysis.html"
   },
   {
     "id": "scheduled-task",
@@ -60,7 +60,7 @@
     "caption": "Task Scheduler shows NvSvc's enabled at-logon trigger, ProgramData action and configured principal. Highest available privileges for this user do not establish SYSTEM execution.",
     "grade": "runtime",
     "source": "Task Scheduler action, trigger and principal settings for NvSvc.",
-    "reference": "references/runtime-validation.html"
+    "reference": "references/runtime-analysis.html"
   },
   {
     "id": "surrogate-process",
@@ -69,7 +69,7 @@
     "caption": "1. Bare SysWOW64 svchost command line. 2. Parent 2116 has exited. 3. The process is x86. The Downloads\\PackClient current directory supplies additional context. These properties support an anomalous surrogate, without identifying an injection subtype.",
     "grade": "runtime",
     "source": "Process Explorer properties for PID 3696.",
-    "reference": "references/runtime-validation.html"
+    "reference": "references/runtime-analysis.html"
   },
   {
     "id": "socket-observations",
@@ -78,7 +78,7 @@
     "caption": "Process Explorer shows two SYN_SENT attempts to 154.36.188.201:443, from local ports 54581 and 50275.",
     "grade": "runtime",
     "source": "Process Explorer TCP/IP views associated with PID 3696.",
-    "reference": "references/runtime-validation.html"
+    "reference": "references/runtime-analysis.html"
   },
   {
     "id": "memory-package",
@@ -87,7 +87,7 @@
     "caption": "VMMap shows a 408 KiB Execute/Read allocation at 0x002E0000. Corresponding dump analysis identifies its contents as the transformed A/B package.",
     "grade": "runtime",
     "source": "VMMap allocation views from the PID 5812 evidence set.",
-    "reference": "references/runtime-validation.html"
+    "reference": "references/runtime-analysis.html"
   },
   {
     "id": "worker-delete",
@@ -114,7 +114,7 @@
     "caption": "Explorer shows Tax_Notice_23665.exe beside nvdaHelperRemote.dll under C:\\ProgramData\\NVIDIA Corporation\\NvSvc. A separate properties view lists an embedded NV Access Limited signature for the host. The signature belongs to the host; this view does not authenticate the companion DLL.",
     "grade": "runtime",
     "source": "Explorer directory listing and host Digital Signatures properties, captured separately.",
-    "reference": "references/architecture.html"
+    "reference": "references/launcher-architecture.html"
   },
   {
     "id": "cache-roundtrip-code",
@@ -123,7 +123,7 @@
     "caption": "The recovered transfer body checks the plaintext digest, requires Save to succeed, and immediately requires TryLoad to return a nonempty vector. The visible failure branches are SHA256 mismatch, disk_cache_save_failed and disk_cache_reload_failed. This is statically reconstructed control flow, not evidence of successful delivery.",
     "grade": "static",
     "source": "Ghidra decompilation of image B’s PLK1 acceptance and cache-return path.",
-    "reference": "references/protocol-reference.html"
+    "reference": "references/launcher-protocol.html"
   },
   {
     "id": "plk1-positive-flow",
@@ -131,8 +131,8 @@
     "title": "A historical Triage Launcher flow reaches PLK1.",
     "caption": "Wireshark displays PLH1, PLC1, PLA1 and PLK1 on the filtered historical flow. The selected PLK1 header declares wire version 2, LZ4, 669,717 transferred bytes, 985,088 original bytes and the expected Core plaintext SHA-256.",
     "grade": "runtime",
-    "source": "Wireshark with the repository Lua dissector on a 1,033-packet flow-filtered derivative of Triage 260715-wd77daas7l/behavioral1; this is not a separate collection or an upstream-C-MR build test.",
-    "reference": "references/core-and-artifact-audit.html"
+    "source": "Filtered derivative of Triage 260715-wd77daas7l/behavioral1, opened with the repository Wireshark dissector; this is not a separate capture.",
+    "reference": "references/core-analysis.html"
   },
   {
     "id": "full-exe-persistence",
@@ -141,7 +141,7 @@
     "caption": "The process view records NvSvc task creation with the ProgramData Tax_Notice_23665.exe action, matching the intended signed-host/carrier chain.",
     "grade": "runtime",
     "source": "Triage 260908-zwr5naybjb behavioral1 process report.",
-    "reference": "references/core-and-artifact-audit.html"
+    "reference": "references/runtime-analysis.html"
   },
   {
     "id": "direct-dll-persistence",
@@ -150,7 +150,7 @@
     "caption": "The direct rundll32 invocation causes NvSvc to target a copied rundll32.exe without the DLL argument. That action cannot replay the original entry point and is treated as a sandbox-context artifact, not a second variant.",
     "grade": "runtime",
     "source": "Triage 260908-zwr5naybjb behavioral2 process report.",
-    "reference": "references/core-and-artifact-audit.html"
+    "reference": "references/runtime-analysis.html"
   },
   {
     "id": "carrier-entry",
@@ -159,7 +159,7 @@
     "caption": "At host RVA 0x1004, the signed Tax Notice executable directly calls the imported nvdaHelperRemote.dll injection_initialize entry, closing the previously unresolved export-selection boundary.",
     "grade": "static",
     "source": "Ghidra disassembly and decompilation of Tax_Notice_23665.exe.",
-    "reference": "references/architecture.html"
+    "reference": "references/launcher-architecture.html"
   },
   {
     "id": "core-plugin-abi",
@@ -168,7 +168,7 @@
     "caption": "The recovered Core resolves PackPlugin_GetAbiVersion and PackPlugin_GetFeatureId before accepting feature-specific host bindings. A separate legacy path resolves Main.",
     "grade": "static",
     "source": "Ghidra decompilation of reconstructed PackClientCore.dll function 0x10016231.",
-    "reference": "references/core-and-artifact-audit.html"
+    "reference": "references/core-analysis.html"
   },
   {
     "id": "core-pv10",
@@ -177,6 +177,6 @@
     "caption": "The Core serializer emits the PV10 marker in the built-in screenshot-preview path. Packet reconstruction finds 15 matching type-18 JPEG frames; no bridge from the separate Launcher 1RCP endpoint is established.",
     "grade": "static",
     "source": "Ghidra disassembly and decompilation of reconstructed PackClientCore.dll RVA 0x236D0.",
-    "reference": "references/core-and-artifact-audit.html"
+    "reference": "references/core-analysis.html"
   }
 ]

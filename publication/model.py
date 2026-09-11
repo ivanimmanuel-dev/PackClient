@@ -19,6 +19,23 @@ def grade_label(grade):
 
 
 SECTIONS = DATA['sections']
+
+# Keep article links stable when supporting documents are renamed.
+_REFERENCE_RENAMES = {
+    'references/architecture.html': 'references/launcher-architecture.html',
+    'references/core-and-artifact-audit.html': 'references/core-analysis.html',
+    'references/protocol-reference.html': 'references/launcher-protocol.html',
+    'references/runtime-validation.html': 'references/runtime-analysis.html',
+    '[Core and artifact audit]': '[PackClient Core]',
+    '[Delivery and Core audit]': '[Delivery and Core analysis]',
+    '[Runtime validation]': '[Runtime analysis]',
+}
+for _section in SECTIONS:
+    for _block in _section['blocks']:
+        if _block['type'] == 'md':
+            for _old, _new in _REFERENCE_RENAMES.items():
+                _block['text'] = _block['text'].replace(_old, _new)
+
 IDENTITIES = DATA['identities']
 FIGURES = json.loads((ROOT / 'publication/figures.json').read_text(encoding='utf-8'))
 for _figure in FIGURES:

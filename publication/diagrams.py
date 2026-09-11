@@ -49,7 +49,7 @@ def architecture():
     arrow(d,[(378,290),(378,246),(125,246),(125,221)])
     arrow(d,[(378,290),(378,246),(360,246),(360,221)])
     arrow(d,[(378,290),(378,246),(595,246),(595,221)])
-    box(d,20,32,210,73,'PackClientCore.dll','Recovered from 8 PLK1 transfers')
+    box(d,20,32,210,73,'PackClientCore.dll','Recovered from PLK1 traffic')
     box(d,490,32,210,73,'External endpoint peer','Creator and consumer missing',kind='gap')
     arrow(d,[(125,149),(125,105)],'verified delivery',141,121)
     arrow(d,[(595,149),(595,105)],'open existing',605,121,dashed=True,color=AMBER)

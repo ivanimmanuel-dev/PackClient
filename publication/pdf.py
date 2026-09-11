@@ -94,6 +94,12 @@ def date_text(value):
     return dt.date.fromisoformat(value).strftime('%d %B %Y').lstrip('0')
 
 
+def publication_pdf_date(*_):
+    """Use the publication date for deterministic PDF document metadata."""
+    value = dt.date.fromisoformat(DATA['date'])
+    return value.strftime("D:%Y%m%d000000+00'00'")
+
+
 # A print bibliography makes the article's existing citations useful off-screen.
 REFERENCES = {}
 for _section in SECTIONS:
@@ -432,6 +438,7 @@ def body_end(canvas, doc):
 class PublicationDoc(BaseDocTemplate):
     def beforeDocument(self):
         # multiBuild repeats pagination; reset the running title each pass.
+        self.canv._doc.info._dateFormatter = publication_pdf_date
         self.running = 'Contents'
         self.page_running = 'Contents'
         self.figure_only_pages = getattr(self, 'next_figure_only_pages', set())

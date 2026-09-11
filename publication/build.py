@@ -107,8 +107,8 @@ def build_article():
 
 
 GROUPS=[
-('Recovered interfaces','The fields, state transitions and missing boundaries behind the article.', [('architecture','Architecture and artifact identity'),('core-and-artifact-audit','Recovered Core and public-artifact audit'),('screenshot-ipc','Screenshot IPC and framebuffer'),('protocol-reference','Transport, authentication and PLK1'),('active-session-handoff','Active-session handoff')]),
-('Runtime and evidence','What the two runtime sets establish, with limits attached to each conclusion.', [('runtime-validation','Runtime validation'),('evidence','Evidence basis and identity anchors'),('limitations','Unresolved questions'),('prior-work','Prior work and contribution')]),
+('Recovered interfaces','The execution chain, protocol contracts and component boundaries behind the article.', [('launcher-architecture','Launcher architecture and lineage'),('core-analysis','PackClient Core'),('screenshot-ipc','Screenshot IPC and framebuffer'),('launcher-protocol','Transport, authentication and PLK1'),('active-session-handoff','Active-session handoff')]),
+('Runtime and evidence','What the local and public runtime evidence establishes, with limits attached to each conclusion.', [('runtime-analysis','Runtime analysis'),('evidence','Evidence and artifact identities'),('limitations','Scope and limitations'),('prior-work','Prior work and contributions')]),
 ('Tools and reproducibility','Passive tools, optional local IPC tests and detection candidates with explicit validation limits.', [('tooling','Supported passive tools and quickstart'),('screenshot-ipc-validation','Synthetic screenshot IPC validation'),('detection-guide','Detection guide')])]
 
 
