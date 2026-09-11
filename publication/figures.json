@@ -2,8 +2,8 @@
   {
     "id": "launcher-identity",
     "asset": "assets/figures/launcher-identity.png",
-    "title": "The recovered B image has a concrete identity.",
-    "caption": "The image summary identifies the imported PE and its PackClientLauncher PDB name. The recorded SHA-256 identifies recovered image B.",
+    "title": "Launcher B retains its PackClientLauncher build identity.",
+    "caption": "The image summary identifies the imported PE and its PackClientLauncher PDB name; the recorded SHA-256 identifies the reconstructed image.",
     "grade": "static",
     "source": "Ghidra program information for recovered image B.",
     "reference": "references/launcher-architecture.html"
@@ -21,7 +21,7 @@
     "id": "worker-frame",
     "asset": "assets/figures/worker-frame.png",
     "title": "The recapture branch constructs a type-2 response.",
-    "caption": "The literal type 2 and the send-helper call are visible in the recovered recapture path. The field semantics and BGRX payload layout come from the linked static dataflow analysis. This is reconstructed code, not a captured live framebuffer.",
+    "caption": "The literal type 2 and the send-helper call are visible in the recapture path. The surrounding dataflow establishes the field semantics and BGRX payload layout.",
     "grade": "static",
     "source": "Ghidra disassembly of the recapture response in image B.",
     "reference": "references/screenshot-ipc.html"
@@ -30,7 +30,7 @@
     "id": "envelope-order",
     "asset": "assets/figures/envelope-order.png",
     "title": "Authentication gates decryption.",
-    "caption": "1. Compute the envelope MAC. 2. Compare the received tag. 3. Enter the decrypt helper only after the comparison succeeds. Helper roles are established in the transport analysis; the screenshot shows their control-flow order.",
+    "caption": "A failed tag comparison exits the receive path before ciphertext reaches the AES-CBC helper.",
     "grade": "static",
     "source": "Ghidra decompilation of the authenticated receive path in image B.",
     "reference": "references/launcher-protocol.html"
@@ -39,7 +39,7 @@
     "id": "session-spawn",
     "asset": "assets/figures/session-spawn.png",
     "title": "The active-session path retries a token-based launch.",
-    "caption": "The recovered call uses CreateProcessAsUserW with flags 0x09000400. The loop sleeps for 1,000 ms after failure and stops after at most 0x1E attempts. This is the active-session helper, not proof of the original chain's elevation API.",
+    "caption": "The call uses CreateProcessAsUserW with flags 0x09000400. The loop sleeps for 1,000 ms after each failure and stops after at most 0x1E attempts. This helper handles session handoff; the original elevation path remains unresolved.",
     "grade": "static",
     "source": "Ghidra decompilation of the active-session spawn loop in image B.",
     "reference": "references/active-session-handoff.html"
@@ -50,7 +50,7 @@
     "title": "One parent creates two siblings.",
     "caption": "Process Monitor records parent PID 2116 creating svchost PID 3696 and schtasks PID 4600; schtasks then creates conhost PID 8248. SUCCESS is the Process Create result, not the child's exit code.",
     "grade": "runtime",
-    "source": "Process Monitor process-creation rows from the PID 3696 evidence set.",
+    "source": "Process Monitor process-creation rows from the PID 3696 capture.",
     "reference": "references/runtime-analysis.html"
   },
   {
@@ -86,26 +86,8 @@
     "title": "Private executable allocation in svchost.exe, PID 5812.",
     "caption": "VMMap shows a 408 KiB Execute/Read allocation at 0x002E0000. Corresponding dump analysis identifies its contents as the transformed A/B package.",
     "grade": "runtime",
-    "source": "VMMap allocation views from the PID 5812 evidence set.",
+    "source": "VMMap allocation views from the PID 5812 capture.",
     "reference": "references/runtime-analysis.html"
-  },
-  {
-    "id": "worker-delete",
-    "asset": "assets/figures/worker-delete.png",
-    "title": "The debugger is stopped before deletion.",
-    "caption": "This is the PID 8148 pre-call stop. EAX at this point is not DeleteObject's return value. The image supplies call-site context; it does not prove successful deletion or establish the cause of the later PID 8040 failure.",
-    "grade": "unresolved",
-    "source": "Debugger breakpoint capture from the PID 8148 attempt.",
-    "reference": "references/screenshot-ipc.html"
-  },
-  {
-    "id": "worker-failure",
-    "asset": "assets/figures/worker-failure.png",
-    "title": "The final worker attempt failed before READY.",
-    "caption": "The saved record shows an access violation at RVA 0xA567 with EDI=0x13C, followed by a zero-byte READY timeout. The attempt included manual debugger changes, so the crash does not establish a failure in unmodified execution or a causal use-after-free diagnosis.",
-    "grade": "unresolved",
-    "source": "Debugger and peer-output captures from the PID 8040 attempt.",
-    "reference": "references/screenshot-ipc.html"
   },
   {
     "id": "staged-host-pair",
@@ -120,7 +102,7 @@
     "id": "cache-roundtrip-code",
     "asset": "assets/figures/cache-roundtrip-code.png",
     "title": "The plaintext must pass digest verification, cache save and cache reload.",
-    "caption": "The recovered transfer body checks the plaintext digest, requires Save to succeed, and immediately requires TryLoad to return a nonempty vector. The visible failure branches are SHA256 mismatch, disk_cache_save_failed and disk_cache_reload_failed. This is statically reconstructed control flow, not evidence of successful delivery.",
+    "caption": "The transfer body checks the plaintext digest, requires Save to succeed, and immediately requires TryLoad to return a nonempty vector. The visible failure branches are SHA256 mismatch, disk_cache_save_failed and disk_cache_reload_failed.",
     "grade": "static",
     "source": "Ghidra decompilation of image B’s PLK1 acceptance and cache-return path.",
     "reference": "references/launcher-protocol.html"
@@ -131,7 +113,7 @@
     "title": "A historical Triage Launcher flow reaches PLK1.",
     "caption": "Wireshark displays PLH1, PLC1, PLA1 and PLK1 on the filtered historical flow. The selected PLK1 header declares wire version 2, LZ4, 669,717 transferred bytes, 985,088 original bytes and the expected Core plaintext SHA-256.",
     "grade": "runtime",
-    "source": "Filtered derivative of Triage 260715-wd77daas7l/behavioral1, opened with the repository Wireshark dissector; this is not a separate capture.",
+    "source": "Filtered PCAPNG derived from Triage 260715-wd77daas7l/behavioral1 and opened with the PackClient Wireshark dissector.",
     "reference": "references/core-analysis.html"
   },
   {
@@ -156,10 +138,28 @@
     "id": "carrier-entry",
     "asset": "assets/figures/signed-host-carrier-call.png",
     "title": "The signed host calls the carrier initializer.",
-    "caption": "At host RVA 0x1004, the signed Tax Notice executable directly calls the imported nvdaHelperRemote.dll injection_initialize entry, closing the previously unresolved export-selection boundary.",
+    "caption": "At host RVA 0x1004, the signed Tax Notice executable calls the imported nvdaHelperRemote.dll!injection_initialize entry.",
     "grade": "static",
     "source": "Ghidra disassembly and decompilation of Tax_Notice_23665.exe.",
     "reference": "references/launcher-architecture.html"
+  },
+  {
+    "id": "core-recovery-verification",
+    "asset": "assets/figures/core-recovery-verification.png",
+    "title": "Traffic recovery and memory identity agree.",
+    "caption": "PLK1 supplies the complete PE hash; the mapped .text hash independently links that build to all 352 memory images.",
+    "grade": "verification",
+    "source": "PowerShell verification output for the historical PLK1 transfers and retained Core memory mappings.",
+    "reference": "references/core-analysis.html"
+  },
+  {
+    "id": "core-ghidra-identity",
+    "asset": "assets/figures/core-ghidra-identity.png",
+    "title": "The recovered Core is a 32-bit x86 PE DLL.",
+    "caption": "Ghidra identifies the reconstructed payload as little-endian 32-bit x86 and a Portable Executable, with the same SHA-256 recovered from PLK1 traffic.",
+    "grade": "static",
+    "source": "Ghidra import summary for the reconstructed PackClientCore.dll.",
+    "reference": "references/core-analysis.html"
   },
   {
     "id": "core-plugin-abi",

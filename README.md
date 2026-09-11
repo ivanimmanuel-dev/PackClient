@@ -92,7 +92,7 @@ The repository includes experimental Sigma and Suricata detections, plus separat
 
 ## Scope and Limitations
 
-The available evidence does not identify the external `1RCP` peer, contain a delivered plugin binary, prove a bridge between `1RCP` and Core `PV10`, recover the server implementation, establish a complete real `1RCP` exchange, or prove the causal diagnosis of the worker failure.
+The available evidence does not identify the external `1RCP` peer, contain a delivered plugin binary, prove a bridge between `1RCP` and Core `PV10`, recover the server implementation, establish a complete real `1RCP` exchange, or establish why the real worker attempt failed.
 
 Additional limitations are documented in [Limitations](docs/limitations.md).
 

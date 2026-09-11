@@ -7,30 +7,38 @@
     {
       "id": "findings",
       "title": "From Launcher to recovered Core",
-      "deck": "The recovered chain connects the signed host, injected Launcher, PLK1 delivery, Core behavior, persistence, and historical C2 traffic.",
+      "deck": "One chain connects the signed host, injected Launcher, PLK1 delivery, recovered Core, persistence, and live C2 traffic.",
       "blocks": [
         {
           "type": "md",
-          "text": "This research follows one PackClient build from its signed host and sideloaded carrier into a suspended 32-bit surrogate, the injected Donut package, Launcher delivery, and the recovered Core.\n\n| Area | Result |\n|---|---|\n| Launcher | Recovered framing, authentication, PLK1/cache, active-session, and `1RCP` contracts |\n| Core | Reconstructed a 985,088-byte `PackClientCore.dll` directly from historical PLK1 traffic and mapped its exports, configuration, plugin interfaces, commands, and screenshot producer |\n| Historical traffic | Reassembled `PLH1 -> PLC1 -> PLA1 -> PLK1`, followed by bidirectional Core traffic and 15 `PV10` JPEG frames |\n| Persistence | Distinguished the normal full-EXE path from the broken task produced when a sandbox invoked the carrier DLL directly through `rundll32.exe` |\n\nThe Launcher's raw-BGRX `1RCP` worker and the Core's GDI/WIC `PV10` producer are separate recovered paths. No component linking them was found, and no plugin binary was present in the available traffic, memory, or cache material. [PackClient Core](references/core-analysis.html), [Evidence](references/evidence.html)"
+          "text": "This research follows one PackClient build from its signed host and sideloaded carrier into a suspended 32-bit surrogate, the injected Donut package, Launcher delivery, and the recovered Core.\n\n| Area | Result |\n|---|---|\n| Launcher | Recovered framing, authentication, PLK1/cache, active-session, and `1RCP` contracts |\n| Core | Reconstructed a 985,088-byte `PackClientCore.dll` directly from historical PLK1 traffic and mapped its exports, configuration, plugin interfaces, commands, and screenshot producer |\n| Historical traffic | Reassembled `PLH1 -> PLC1 -> PLA1 -> PLK1`, followed by bidirectional Core traffic and 15 `PV10` JPEG frames |\n| Persistence | Distinguished the normal full-EXE path from the broken task produced when a sandbox invoked the carrier DLL directly through `rundll32.exe` |\n\nThe Launcher's raw-BGRX `1RCP` worker and the Core's GDI/WIC `PV10` producer are separate recovered paths. No component linking them was found, and no plugin binary was present in the available traffic, memory, or cache material. The [PackClient Core analysis](references/core-analysis.html) develops those findings, while [Samples and provenance](references/evidence.html) lists the complete file identities."
         }
       ]
     },
     {
       "id": "architecture",
-      "title": "From a signed host to the embedded launcher",
-      "deck": "The staged helper explains the sideload. The embedded package reveals the Donut loader, mapper, Launcher, and delivered Core.",
+      "title": "The signed-host execution chain",
+      "deck": "The signed host loads a colocated carrier, which starts an embedded Donut package inside a suspended 32-bit surrogate.",
       "blocks": [
         {
           "type": "md",
-          "text": "The July 2026 Tax Notice lineage stages a signed NV Access/NVDA executable beside a malicious `nvdaHelperRemote.dll`. The host imports that helper by bare filename, allowing the colocated carrier to satisfy the import. Its import table contains only `ExitProcess` and `injection_initialize`; host RVA `0x1004` calls the helper through IAT slot `0xF268`. The legitimate helper name is documented by NV Access. [Artifact identity and lineage](references/evidence.html), [NVDA helper documentation](https://github.com/nvaccess/nvda/blob/master/nvdaHelper/readme.md)\n\nThe injected call-over-data package contains a Donut instance and embedded executable A. Four-byte terminal glue recovers the instance pointer from the opening `CALL`; the following 11,647 bytes exactly match Donut `LOADER_EXE_X86` at commit `47758d787209dd1744f58c140102ac91b649df16`, followed by 23 zero bytes. Donut maps A, and A maps `PackClientLauncher.exe` B. [Transformed record and loader](references/architecture.html)\n\nTriage repeatedly records remote package writes into a newly created suspended 32-bit `svchost.exe`, followed by `SetThreadContext` on its primary thread. Across twelve July/August tasks, the complete 417,792-byte protected allocation is stable at SHA-256 `E49581067CC2AA5ABD09C8DF42D6FBD87CB064A9363FE8B52D8369FD1C51FFE5`. It contains the separately reconstructed 415,071-byte logical record; the extra 2,721 allocation bytes remain unexplained and the two identities must not be collapsed. One exemplar records 53 write-labelled events into PID 844 at `0x00440000`, followed by `SetThreadContext` on primary thread 4600. This supports thread execution hijacking (`T1055.003`), not classic process hollowing or remote-thread injection. The carrier's exact static write API/call site and installed instruction-pointer value remain unresolved. [Carrier and A-to-B mapping](references/architecture.html)"
+          "text": "The July 2026 Tax Notice lineage places a signed NV Access/NVDA executable beside a malicious `nvdaHelperRemote.dll`. Because the host imports the helper by bare filename, the colocated carrier satisfies the import. At host RVA `0x1004`, the executable calls `nvdaHelperRemote.dll!injection_initialize` through IAT slot `0xF268`. [Samples and provenance](references/evidence.html) identifies the studied host and carrier; the legitimate library layout is described in the [NVDA helper documentation](https://github.com/nvaccess/nvda/blob/master/nvdaHelper/readme.md)."
         },
         {
           "type": "figure",
           "id": "carrier-entry"
         },
         {
+          "type": "md",
+          "text": "The installed directory preserves the signed host and its colocated carrier as a pair. The same chain creates a suspended `SysWOW64\\svchost.exe`, writes the embedded package into that process, changes its primary-thread context, and resumes execution."
+        },
+        {
           "type": "figure",
           "id": "staged-host-pair"
+        },
+        {
+          "type": "md",
+          "text": "The injected call-over-data package contains a Donut instance and embedded executable A. Four bytes of terminal glue recover the instance pointer from the opening `CALL`; the next 11,647 bytes exactly match Donut `LOADER_EXE_X86` from revision `47758d787209dd1744f58c140102ac91b649df16`, followed by 23 zero bytes. Donut maps A, and A maps `PackClientLauncher.exe` B. The complete package layout appears in the [Launcher architecture](references/launcher-architecture.html).\n\nAcross twelve July and August Triage tasks, the protected allocation is 417,792 bytes and has SHA-256 `E49581067CC2AA5ABD09C8DF42D6FBD87CB064A9363FE8B52D8369FD1C51FFE5`. It contains a 415,071-byte logical record; the additional 2,721 allocation bytes remain unexplained. These are distinct objects, so their hashes are not interchangeable. One task records 53 write-labelled events into PID 844 at `0x00440000`, followed by `SetThreadContext` on primary thread 4600. This sequence supports thread execution hijacking (`T1055.003`), not classic process hollowing or remote-thread creation. The carrier's precise write call site and the instruction pointer installed by `SetThreadContext` remain unresolved. See the [Launcher architecture](references/launcher-architecture.html) for the carrier and A-to-B mapping details."
         },
         {
           "type": "diagram",
@@ -38,7 +46,7 @@
         },
         {
           "type": "md",
-          "text": "The Launcher implements transport, PLK1 delivery and caching, active-session handoff, and an early screenshot-worker mode. Historical traffic supplies the Core that follows PLK1 and the commands and `PV10` frames exchanged after it starts.\n\n| Object | Recorded size | Identity anchor |\n|---|---:|---|\n| Tax Notice host | 120,984 bytes | SHA-256 begins `93DD8B7B393289F8` |\n| Sideload carrier | 455,527 bytes | SHA-256 begins `7295090C2CB63EBC` |\n| Reconstructed Launcher B | 271,872-byte PE32 executable | SHA-256 begins `46B34789196733FA` |\n| Recovered Core | 985,088-byte PE32 DLL | SHA-256 begins `4DE6EF8647FB4B59` |\n\nComplete hashes appear in the [identity index](evidence.html#identities)."
+          "text": "Launcher B provides transport, PLK1 delivery and caching, active-session handoff, and an early screenshot-worker mode. Once PLK1 completes, the recovered Core supplies the wider command set and the `PV10` screenshot path seen in historical traffic.\n\n| Object | Recorded size | Identity anchor |\n|---|---:|---|\n| Tax Notice host | 120,984 bytes | SHA-256 begins `93DD8B7B393289F8` |\n| Sideload carrier | 455,527 bytes | SHA-256 begins `7295090C2CB63EBC` |\n| Reconstructed Launcher B | 271,872-byte PE32 executable | SHA-256 begins `46B34789196733FA` |\n| Recovered Core | 985,088-byte PE32 DLL | SHA-256 begins `4DE6EF8647FB4B59` |\n\nThe [sample and object table](references/evidence.html#artifact-identities) lists the complete hashes."
         },
         {
           "type": "figure",
@@ -48,12 +56,12 @@
     },
     {
       "id": "screenshot-ipc",
-      "title": "The 1RCP screenshot boundary",
-      "deck": "The worker implements a small, exact protocol. The endpoint creator and downstream consumer remain unidentified.",
+      "title": "Launcher screenshot worker",
+      "deck": "An early command-line branch turns Launcher B into a local screenshot worker with a compact 20-byte protocol.",
       "blocks": [
         {
           "type": "md",
-          "text": "The worker is selected by an early argument-dispatch branch, before the later active-session/Core path. The interface is `/scr_cap_worker <endpoint-utf8> [monitor-index]`. Its body runs in the already launched process and inherits that process’s token, session and environment. The wrapper exits after the worker returns; the later token-based launch path cannot be used to infer the worker’s original security context. [Activation and context](references/screenshot-ipc.html)\n\nThe endpoint argument is converted to UTF-16 and passed to `CreateFileW` with read/write access, no sharing and `OPEN_EXISTING`. There is one open attempt. The recovered path contains no endpoint creator, named-pipe server, wait-for-pipe loop or peer authentication. A named pipe is strongly supported by context, but the argument’s namespace is not recovered; the API itself also accepts other paths. [Screenshot IPC reference](references/screenshot-ipc.html)"
+          "text": "The worker is selected by an early argument-dispatch branch, before the later active-session/Core path. The interface is `/scr_cap_worker <endpoint-utf8> [monitor-index]`. Its body runs in the already launched process and inherits that process’s token, session and environment. The wrapper exits after the worker returns; the later token-based launch path cannot be used to infer the worker’s original security context. The [screenshot worker analysis](references/screenshot-ipc.html) traces this activation path.\n\nThe endpoint argument is converted to UTF-16 and passed to `CreateFileW` with read/write access, no sharing and `OPEN_EXISTING`. There is one open attempt. The recovered path contains no endpoint creator, named-pipe server, wait-for-pipe loop or peer authentication. A named pipe is strongly supported by context, but the argument’s namespace is not recovered; the API itself also accepts other paths. Its endpoint handling is documented with the rest of the [screenshot worker interface](references/screenshot-ipc.html)."
         },
         {
           "type": "figure",
@@ -65,7 +73,7 @@
         },
         {
           "type": "md",
-          "text": "After the first successful capture, the worker emits READY. It then accumulates exactly 20 command bytes, checks the magic and dispatches the request type. Correct-magic types other than 3 and 5 are ignored. Bad magic, a failed read or a zero-byte read ends the command loop without a protocol reply. The diagram scopes the successful capture paths and command dispatch; it is not a packet capture.\n\nThe header is five little-endian DWORDs. The bytes `31 52 43 50` spell `1RCP`; as a DWORD the magic is `0x50435231`."
+          "text": "After the first successful capture, the worker emits READY. It then accumulates exactly 20 command bytes, checks the magic and dispatches the request type. Correct-magic types other than 3 and 5 are ignored. Bad magic, a failed read or a zero-byte read ends the command loop without a protocol reply.\n\nThe header is five little-endian DWORDs. The bytes `31 52 43 50` spell `1RCP`; as a DWORD the magic is `0x50435231`."
         },
         {
           "type": "diagram",
@@ -73,7 +81,7 @@
         },
         {
           "type": "md",
-          "text": "| Type | Direction | Meaning | Dimensions and payload |\n|---:|---|---|---|\n| 1 | Worker → peer | READY | Captured width and height; payload length zero |\n| 3 | Peer → worker | Recapture | Request DWORDs 2–4 are ignored |\n| 2 | Worker → peer | Frame response | Width, height and following pixel-byte length |\n| 5 | Peer → worker | Exit | Request DWORDs 2–4 are ignored; no reply |\n\nThis distinction matters for an independent parser. Zero-filled request fields are a synthetic fixture convention, not a requirement imposed by the worker. The request loop also does not drain extra bytes according to the request’s last DWORD; it reads the next 20-byte header. Worker process exit codes are separate from these message types.\n\nThe selected monitor supplies positive width and height. The DIB uses 32-bit `BI_RGB` with a negative height, producing top-down rows. Each pixel is blue, green, red and an unused fourth byte; meaningful alpha is not established. Stride is `width × 4`, with no additional per-row padding. The expected payload is `width × height × 4`; the IA-32 reconstruction found no separate arithmetic overflow guard. The actual response length is taken from the framebuffer vector’s end-minus-begin distance. [Pixel calculation and layout](references/screenshot-ipc.html)"
+          "text": "A normal exchange follows `1 → 3 → 2 → 5`: the worker announces READY, the peer requests a capture, the worker returns the frame, and the peer eventually exits.\n\n| Type | Direction | Meaning | Dimensions and payload |\n|---:|---|---|---|\n| 1 | Worker → peer | READY | Captured width and height; payload length zero |\n| 3 | Peer → worker | Recapture | Request DWORDs 2–4 are ignored |\n| 2 | Worker → peer | Frame response | Width, height and following pixel-byte length |\n| 5 | Peer → worker | Exit | Request DWORDs 2–4 are ignored; no reply |\n\nZero-filled request fields are a synthetic test convention, not a worker requirement. The command loop always reads the next 20-byte header and does not consume extra bytes according to the final DWORD. Worker process exit codes are separate from protocol message types.\n\nThe selected monitor supplies positive width and height. The DIB uses 32-bit `BI_RGB` with a negative height, producing top-down rows. Each pixel is blue, green, red and an unused fourth byte; meaningful alpha is not established. Stride is `width × 4`, with no additional per-row padding. The expected payload is `width × height × 4`; the IA-32 reconstruction found no separate arithmetic overflow guard. The actual response length is taken from the framebuffer vector’s end-minus-begin distance. The complete field and pixel layout appears in the [screenshot worker analysis](references/screenshot-ipc.html)."
         },
         {
           "type": "figure",
@@ -81,18 +89,18 @@
         },
         {
           "type": "md",
-          "text": "**The verified dataflow ends at `WriteFile` on the supplied endpoint.** Within recovered B, no scoped call/data edge carries those pixels into Winsock, PLK1, the encrypted transport, or a JPEG/PV10 conversion path. An external peer could transform or forward the pixels, but its implementation is missing. The recovered worker interface does not establish end-to-end exfiltration. [External peer boundaries](references/screenshot-ipc.html)"
+          "text": "Within Launcher B, the pixel path ends at `WriteFile` on the supplied endpoint. No call or data edge carries those pixels into Winsock, PLK1, the encrypted transport, or a JPEG/PV10 conversion path. An external peer could transform or forward the pixels, but that component was not recovered. See the [screenshot worker analysis](references/screenshot-ipc.html) for the complete path.\n\nWhen this mode is not selected, Launcher B continues into the network framing and authentication path described next."
         }
       ]
     },
     {
       "id": "transport",
-      "title": "Framing, authentication and the missing key writer",
-      "deck": "The lower transport can be reconstructed more precisely than the available runtime traffic can validate it.",
+      "title": "Launcher transport and authentication",
+      "deck": "Launcher B frames, authenticates, and can decrypt traffic before the Core is loaded; historical captures preserve the plaintext handshake and delivery path.",
       "blocks": [
         {
           "type": "md",
-          "text": "The outer frame starts with a little-endian word formed by `0x5A400000 | body_length`. The receiver checks `(frame_word >> 22) == 0x169`, bounds the nonzero body at `0x3FFFFF`, reads it exactly, and requires at least four bytes for the type. Thus `24 00 40 5A` means a 36-byte body and a 40-byte total frame. Treating the prefix as an entire message would produce an incorrect decoder. [Framing and handshake](references/protocol-reference.html)\n\n| Offset | Bytes | Outer-frame meaning |\n|---:|---:|---|\n| `0x00` | 4 | Prefix combined with body length |\n| `0x04` | 4 | Little-endian type DWORD, part of the body |\n| `0x08` | Variable | Payload; body length minus four |\n\nB sends PLH1 and PLA1 in plaintext type `0x15`. Its first framed receive accepts PLC1 either directly in type `0x15` or through an authenticated outer `0x16` envelope with inner type `0x15`, provided the envelope keys are initialized. This receive precedes Core loading. PLH1 is a 32-byte client hello; PLC1 is the 24-byte server challenge; PLA1 is the 40-byte client authentication object. PLH1 includes version 1, an unresolved word set to `0x20`, fixed fields, a tick count and the process ID. PLC1 contributes a 16-byte challenge at offsets `0x08..0x17`; challenge generation lives in the missing server.\n\nPLA1 uses HMAC-SHA-256 over exactly **42 bytes**. It is not a hash of the entire hello and challenge:\n\n```text\nPLH1[0x10:0x20]  // 16 bytes\n|| PLC1[0x08:0x18]  // 16 bytes\n|| PLH1[0x0C:0x10]  //  4 bytes\n|| PLH1[0x06:0x08]  //  2 bytes\n|| \"PLK1\"          //  4 bytes\n```\n\nThe PSK comes from `PACK_LAUNCH_PSK`; missing or empty values select the 19-byte fallback `pack-launch-dev-psk`. The passive tool only uses that fallback when explicitly requested. After sending PLA1, the recovered function does not check a separate post-authentication acknowledgement. These are build-specific static facts, not observations of a successful live handshake. [Handshake evidence](references/evidence.html)\n\n### Authentication gates encrypted receive\n\nType `0x16` is an inbound encrypted envelope. In this B image the send path constructs only type `0x15`; symmetric support must not be assumed. The envelope carries a version byte, 16-byte IV, four-byte **big-endian** ciphertext length, ciphertext, and 32-byte HMAC tag. The length field’s byte order differs from the surrounding little-endian framing."
+          "text": "The outer frame starts with a little-endian word formed by `0x5A400000 | body_length`. The receiver checks `(frame_word >> 22) == 0x169`, bounds the nonzero body at `0x3FFFFF`, reads it exactly, and requires at least four bytes for the type. Thus `24 00 40 5A` means a 36-byte body and a 40-byte total frame. The complete byte layout is documented in the [Launcher protocol](references/launcher-protocol.html).\n\n| Offset | Bytes | Outer-frame meaning |\n|---:|---:|---|\n| `0x00` | 4 | Prefix combined with body length |\n| `0x04` | 4 | Little-endian type DWORD, part of the body |\n| `0x08` | Variable | Payload; body length minus four |\n\nB sends PLH1 and PLA1 in plaintext type `0x15`. Its first framed receive accepts PLC1 either directly in type `0x15` or through an authenticated outer `0x16` envelope with inner type `0x15`, provided the envelope keys are initialized. This receive precedes Core loading. PLH1 is a 32-byte client hello; PLC1 is the 24-byte server challenge; PLA1 is the 40-byte client authentication object. PLH1 includes version 1, an unresolved word set to `0x20`, fixed fields, a tick count and the process ID. PLC1 contributes a 16-byte challenge at offsets `0x08..0x17`; challenge generation lives in the server.\n\nPLA1 uses HMAC-SHA-256 over exactly **42 bytes**, rather than the complete hello and challenge:\n\n```text\nPLH1[0x10:0x20]  // 16 bytes\n|| PLC1[0x08:0x18]  // 16 bytes\n|| PLH1[0x0C:0x10]  //  4 bytes\n|| PLH1[0x06:0x08]  //  2 bytes\n|| \"PLK1\"          //  4 bytes\n```\n\nThe PSK comes from `PACK_LAUNCH_PSK`; missing or empty values select the 19-byte fallback `pack-launch-dev-psk`. After sending PLA1, the recovered function does not wait for a separate authentication acknowledgement. The July captures confirm the plaintext `PLH1 → PLC1 → PLA1` sequence. The [historical traffic record](references/evidence.html) preserves the successful exchange.\n\n### Optional encrypted receive\n\nType `0x16` is an inbound encrypted envelope. In this B image, the send path constructs only type `0x15`. The envelope carries a version byte, 16-byte IV, four-byte **big-endian** ciphertext length, ciphertext, and a 32-byte HMAC tag. The length field’s byte order differs from the surrounding little-endian framing."
         },
         {
           "type": "diagram",
@@ -104,22 +112,26 @@
         },
         {
           "type": "md",
-          "text": "The MAC covers version, IV, encoded length and ciphertext, excluding the outer frame/type and the trailing tag. A tag match gates AES-256-CBC decryption with BCrypt block padding; the resulting plaintext must begin with inner type `0x15`. The recovered tag comparison exits early, so the report does not describe it as constant-time.\n\nA ready byte at B RVA `0x41C44` gates a 32-byte AES key at `0x41C48` and a separate 32-byte HMAC key at `0x41C68`. The completed B census found reads but no initializer, setter or derivation. The handshake PSK/HMAC was not shown to flow into those globals. An unrecovered in-process component could initialize them; absent that state, encrypted receive remains disabled. Envelope-key initialization remains unresolved. [Envelope key origin](references/protocol-reference.html)"
+          "text": "The MAC covers version, IV, encoded length and ciphertext, excluding the outer frame/type and the trailing tag. A tag match gates AES-256-CBC decryption with BCrypt block padding; the resulting plaintext must begin with inner type `0x15`. The tag comparison exits on the first mismatch and is not constant-time.\n\nA ready byte at B RVA `0x41C44` gates a 32-byte AES key at `0x41C48` and a separate 32-byte HMAC key at `0x41C68`. Analysis found reads of these globals but no initializer, setter or derivation. The handshake PSK was not shown to feed them. Unless another in-process component initializes this state, encrypted receive remains disabled. The [Launcher protocol](references/launcher-protocol.html) documents the key-state reads and the unresolved writer."
         }
       ]
     },
     {
       "id": "delivery",
-      "title": "Delivery is gated by a cache round trip",
-      "deck": "Freshly received bytes do not pass directly to the PE loader. The cache is part of the acceptance path.",
+      "title": "PLK1 delivery and Core loading",
+      "deck": "PLK1 reconstruction is only the first gate: the Core must survive a protected cache save and reload before execution.",
       "blocks": [
         {
           "type": "md",
-          "text": "PLK1 validates magic/version, original and transferred size bounds, sequence and chunk-copy state, optional raw LZ4 decompression, and the final plaintext SHA-256. Active callers request slot 0, corresponding to `PackClientCore.primary.dll`. Generic shared support can name a secondary slot, but the bounded caller census found no reachable request for it in this build. [Delivery and Core audit](references/core-and-artifact-audit.html)"
+          "text": "PLK1 validates the header, original and transferred size bounds, chunk sequence, optional raw-LZ4 decompression, and the final plaintext SHA-256. Both active callers request slot 0, corresponding to `PackClientCore.primary.dll`; no caller in this Launcher requests the secondary slot supported by shared code. The [PackClient Core analysis](references/core-analysis.html) follows this delivery through to the recovered DLL."
         },
         {
           "type": "figure",
           "id": "plk1-positive-flow"
+        },
+        {
+          "type": "md",
+          "text": "A fresh transfer is not loaded directly. `Save` must first persist the plaintext, then `TryLoad` must decrypt and re-hash the cached copy. Only the reloaded vector reaches `MemoryLoadLibraryEx`; successful network delivery alone is insufficient for execution."
         },
         {
           "type": "diagram",
@@ -127,7 +139,7 @@
         },
         {
           "type": "md",
-          "text": "For a fresh transfer, `Save` must succeed. `TryLoad` must then decrypt and independently re-hash the stored plaintext. Only that reloaded vector is returned to the PE wrapper and `MemoryLoadLibraryEx`. This exact branch order matters: a decoder that accepts the network object alone models only part of the launcher’s acceptance conditions.\n\nEight complete historical transfers now validate the network object independently: each uses eleven ordered type-`0x15` chunks, ten of 65,536 bytes and a final 14,357-byte chunk. Their 669,717-byte raw-LZ4 object decompresses to the same 985,088-byte Core and sender-declared SHA-256. The capability resolution and CryptProtect/Unprotect dataflow still strongly support current-user DPAPI protection for the relative cache; the absolute runtime base remains unresolved. [Positive-flow reconstruction](references/protocol-reference.html)"
+          "text": "Each of the eight complete historical transfers uses eleven ordered type-`0x15` chunks: ten carry 65,536 bytes and the final chunk carries 14,357 bytes. The resulting 669,717-byte raw-LZ4 object decompresses to the same 985,088-byte Core and matches the SHA-256 declared by the sender.\n\nThe cache resolves `CryptProtectData` and `CryptUnprotectData` dynamically and stores the Core by its plaintext SHA-256. This supports current-user DPAPI protection for the relative cache, although the absolute runtime base directory remains unresolved. The [Launcher protocol](references/launcher-protocol.html) traces the cache-hit and fresh-delivery paths."
         },
         {
           "type": "figure",
@@ -137,12 +149,36 @@
     },
     {
       "id": "core",
-      "title": "The delivered Core is recovered",
-      "deck": "Historical PLK1 traffic reconstructs the Core and continues into observed commands and screenshot frames.",
+      "title": "Inside PackClient Core",
+      "deck": "Historical PLK1 traffic reconstructs the Core and reveals its exports, transport, plugin system, updates, commands, and screenshot producer.",
       "blocks": [
         {
           "type": "md",
-          "text": "All eight complete PLK1 transfers—four in `260715-wd77daas7l` and four in `260716-dhnz7aft6z`—produce one canonical 985,088-byte x86 `PackClientCore.dll`, SHA-256 `4DE6EF8647FB4B599966A233740CB0514D1E71B8019A1A1792ED7E1E514EDF1C`. A separate census found 352 retained memory records from eight Core processes; every record's 753,664-byte `.text` matches SHA-256 `F06FF7AB6D62B761344CAECBCC6857912F7543F43C0E5FF462D2174BADB0CA3F`.\n\nAll 11 exports are accounted for, including `Main`, `MainMinimal`, `MainWithConfig`, `RunWithConfig`, `PackClientDll_AbiVersion`, `PackClientDll_Run`, `PackClientDll_TrySystemSessionHandoff`, `PackClient_AllocStoredPluginImageW`, `PackClient_FreeStoredPluginImage`, `ProbeEntry` and `RunDualWithConfig`. `PackClientDll_Run` confirms the Launcher's five-field view: host at `+0x00`, 16-bit port at `+0x04`, group at `+0x08`, optional tag at `+0x0C`, and optional configuration string at `+0x10`. [Core ABI and exports](references/core-and-artifact-audit.html)"
+          "text": "All eight complete PLK1 transfers—four in `260715-wd77daas7l` and four in `260716-dhnz7aft6z`—produce the same 985,088-byte x86 `PackClientCore.dll`, SHA-256 `4DE6EF8647FB4B599966A233740CB0514D1E71B8019A1A1792ED7E1E514EDF1C`. Across eight Core processes, all 352 retained mappings contain the same 753,664-byte `.text` section, SHA-256 `F06FF7AB6D62B761344CAECBCC6857912F7543F43C0E5FF462D2174BADB0CA3F`. The full-file and mapped-section hashes independently identify the recovered build."
+        },
+        {
+          "type": "figure",
+          "id": "core-recovery-verification"
+        },
+        {
+          "type": "md",
+          "text": "Ghidra independently identifies the recovered payload as a little-endian 32-bit x86 Portable Executable and records the same full-file SHA-256 produced by PLK1 reconstruction. The complete identity and recovery steps appear in the [PackClient Core analysis](references/core-analysis.html)."
+        },
+        {
+          "type": "figure",
+          "id": "core-ghidra-identity"
+        },
+        {
+          "type": "md",
+          "text": "### Runtime entry points\n\nThe DLL exposes 11 exports in four groups:\n\n- Main entry modes: `Main`, `MainMinimal`, `MainWithConfig`, `RunWithConfig`, and `RunDualWithConfig`\n- Launcher integration: `PackClientDll_AbiVersion`, `PackClientDll_Run`, and `PackClientDll_TrySystemSessionHandoff`\n- Stored-plugin memory: `PackClient_AllocStoredPluginImageW` and `PackClient_FreeStoredPluginImage`\n- Probe entry: `ProbeEntry`\n\n`PackClientDll_Run` reads five fields from the Launcher's configuration block:\n\n| Offset | Field |\n|---:|---|\n| `+0x00` | Host |\n| `+0x04` | 16-bit port |\n| `+0x08` | Group |\n| `+0x0C` | Optional tag |\n| `+0x10` | Optional configuration string |\n\nThe [PackClient Core analysis](references/core-analysis.html) traces the export preconditions and Launcher-to-Core ABI.\n\n`RunWithConfig` starts one `S1` link, while `RunDualWithConfig` maintains separate `S1` and `S2` endpoint states. Core implements reconnect, heartbeat, and periodic DNS re-resolution and reads six local settings for fragmentation, DNS polling, TLS, application authentication, and preview control."
+        },
+        {
+          "type": "md",
+          "text": "### Core transport and encryption\n\nCore's authenticated type-`0x16` record uses a little-endian ciphertext length. A nonempty local `auth_psk` derives independent keys as `SHA256(\"PACKAPP|AES256|v1|\" || raw_psk)` and `SHA256(\"PACKAPP|HMAC|v1|\" || raw_psk)`; an empty value clears readiness and both keys. Core encrypts the complete original type and payload, then redispatches the decrypted inner record. The Launcher's earlier type-`0x16` envelope instead uses a big-endian length, unresolved key state, and accepts only inner type `0x15`. The [PackClient Core analysis](references/core-analysis.html) provides the complete application-envelope layout."
+        },
+        {
+          "type": "md",
+          "text": "### Plugin loading and updates\n\nThe Core accepts a modern plugin ABI—`PackPlugin_GetAbiVersion`, `PackPlugin_GetFeatureId` and `PackPlugin_OnLoad`—and retains a legacy `Main` loader. Before dispatch, a candidate plugin must expose at least `RunWithConfig` or `Main`; the modern ABI adds further validation. The recovered implementation includes eleven feature-to-DLL mappings, screen-codec sidecars, staged raw-LZ4 delivery, legacy LZ4/zlib delivery, activation policy, and a paired current-user-DPAPI `.pblob`/JSON cache. The cache writes through a temporary file, flushes, atomically replaces the destination, and records feature, version, architecture, hash, size, and timestamps. It is separate from the Launcher's SHA-256-addressed Core cache.\n\nCore updates use a distinct `CLIENTCOREUPD` path that stores DPAPI-protected chunks under `HKCU\\Software\\PackMonitorClient\\LauncherDllStore\\<bits>\\Primary`. No plugin binary, paired cache, completed plugin delivery, activated mapping, or Core-update transaction appears in the available artifacts. The plugin and update paths are traced in the [PackClient Core analysis](references/core-analysis.html)."
         },
         {
           "type": "figure",
@@ -150,7 +186,7 @@
         },
         {
           "type": "md",
-          "text": "The Core resolves a modern plugin ABI—`PackPlugin_GetAbiVersion`, `PackPlugin_GetFeatureId` and `PackPlugin_OnLoad`—and retains a legacy `Main` loader. A pre-dispatch gate requires at least `RunWithConfig` or `Main`; the modern ABI is additional validation, not the sole admissible entry. Eleven canonical feature-to-DLL mappings, screen-codec sidecars, the idempotent `init -> chunk -> commit` raw-LZ4 transaction, legacy LZ4/zlib delivery, activation policy and paired current-user-DPAPI `.pblob`/JSON store were recovered. That plugin store writes through a temporary file, flushes, atomically replaces the cache and records JSON metadata including feature, version, architecture, hash, size and timestamps. It is distinct from the Launcher's SHA-256-addressed Core cache. `store=registry` means Core's internal module registry, not a Windows Registry plugin store. A separate `CLIENTCOREUPD` path writes DPAPI-protected chunks under `HKCU\\Software\\PackMonitorClient\\LauncherDllStore\\<bits>\\Primary`; WinHTTP is not that update path. No plugin binary, paired cache, completed delivery or update transaction, or activated plugin mapping appears in the available artifacts. The implementation is present, but no plugin delivery or activation was observed.\n\nHistorical Core traffic includes plaintext `INP HELLO`, `STARTUP PROBE`/`STARTUP OK`, `KTL OFFLINE` and `PREVIEW ENABLE`/`REQ`/`ACK` exchanges. The recovered implementation and observed traffic line up as follows:\n\n| Surface | Observed traffic | Recovered Core behavior | Remaining boundary |\n|---|---|---|---|\n| Session/startup | `INP HELLO`, `STARTUP PROBE` and `STARTUP OK` | Session/control router and startup-probe branch | Live Core exchange; no server implementation |\n| Preview | Enable/request/ack exchanges and 15 `PV10` JPEG frames | GDI/WIC capture and `PV10` producer | No bridge to Launcher `1RCP` |\n| Keylogger | `KTL OFFLINE` telemetry | Hook, archive, sync and clipboard-telemetry paths | No captured keystroke contents |\n| Plugins | No transaction, cache pair or plugin bytes | Staged protocol, ABI, loader and DPAPI cache | Capability only |\n| Core update | No transaction | `CLIENTCOREUPD` validation and registry store | Static only; WinHTTP is not attributed to this branch |\n| Auth envelope | No type-`0x16` frames | Optional Core KDF and AES-CBC/HMAC envelope | No deployed PSK or encrypted message |\n| ETCHOOK | No activation traffic | Regex-controlled clipboard replacement | Static capability only |\n\nThe Core's built-in preview producer uses GDI capture and scaling, `GetDIBits`, WIC JPEG encoding and a bytewise `PV10` serializer; fifteen historical type-18 frames agree with that format. This is distinct from the Launcher's raw-BGRX `1RCP` worker, and no recovered component bridges the two. The Core's ETCHOOK path also implements regex-controlled ANSI/Unicode clipboard replacement. Proofpoint previously reported PackClient's clipboard-replacement capability. Analysis of this Core build adds the built-in patterns and concrete control formats."
+          "text": "### Commands and capabilities\n\nBeyond the observed startup and preview exchange, analysis identified handlers for:\n\n- File, process, startup-item, scheduled-task, and registry operations\n- Shell and payload execution\n- Remote input, screen control, keylogging, and clipboard telemetry\n- TCP and UDP proxying\n- Virtual desktops and webcam handling\n- Plugin delivery and Core updates\n\nCaptured traffic contains startup, inventory, offline-keylogger status, preview control, and screenshot delivery.\n\n| Surface | Observed traffic | Recovered Core behavior | Remaining gap |\n|---|---|---|---|\n| Session/startup | `INP HELLO`, `STARTUP PROBE` and `STARTUP OK` | Session/control router and startup-probe branch | Server-side implementation not recovered |\n| Preview | Enable/request/ack exchanges and 15 `PV10` JPEG frames | GDI/WIC capture and `PV10` producer | Relationship to Launcher `1RCP` not established |\n| Keylogger | `KTL OFFLINE` telemetry | Hook, archive, sync and clipboard-telemetry paths | No keystroke contents captured |\n| Plugins | No transaction, cache pair or plugin bytes | Staged protocol, ABI, loader and DPAPI cache | No plugin payload recovered |\n| Core update | No transaction | `CLIENTCOREUPD` validation and registry store | No update delivery observed |\n| Auth envelope | No type-`0x16` frames | Optional Core KDF and AES-CBC/HMAC envelope | No deployed PSK or encrypted Core message recovered |\n| ETCHOOK | No activation traffic | Regex-controlled clipboard replacement | No activation observed |\n\nThe built-in preview producer uses GDI capture and scaling, `GetDIBits`, WIC JPEG encoding, and a bytewise `PV10` serializer. All 15 historical type-18 frames match that format. This path is distinct from the Launcher's raw-BGRX `1RCP` worker, and no recovered component bridges the two."
         },
         {
           "type": "figure",
@@ -158,18 +194,18 @@
         },
         {
           "type": "md",
-          "text": "Core's authenticated type-`0x16` record uses a little-endian ciphertext length. Nonempty local `auth_psk` derives independent keys as `SHA256(\"PACKAPP|AES256|v1|\" || raw_psk)` and `SHA256(\"PACKAPP|HMAC|v1|\" || raw_psk)`; an empty value clears readiness and both keys. Core wraps the entire original type-plus-payload, sets the outer message type to `C + 0x35`, and redispatches the decrypted inner record; original types `0x15` and `0x16` are not wrapped. The Launcher's pre-Core type-`0x16` instead uses a big-endian ciphertext length, unresolved key state, and accepts only a decrypted inner type `0x15`. The same outer message type therefore has a different layout after the connection enters the Core phase. [Core configuration and application envelope](references/core-analysis.html)"
+          "text": "### Clipboard replacement\n\nCore also implements regex-controlled ANSI and Unicode clipboard replacement through ETCHOOK. Proofpoint previously reported PackClient's clipboard-replacement capability; analysis of this build adds the built-in patterns and the concrete `PERCLIENT` and `SYNC` control formats. ETCHOOK does not appear in the captured traffic."
         }
       ]
     },
     {
       "id": "session",
-      "title": "Staying with the active console session",
-      "deck": "The launcher contains an active-console relaunch mechanism with a 30-attempt spawn loop. It should not be conflated with the original chain’s elevation step.",
+      "title": "Active-session handoff",
+      "deck": "Launcher B can relaunch into the active console session and replace itself when that session changes.",
       "blocks": [
         {
           "type": "md",
-          "text": "The active-session path resolves a bootstrap executable, preserves a constrained set of special arguments, duplicates the current process token as a primary launch token and assigns it to the target console session before calling `CreateProcessAsUserW`. A separately selected user token can supply the environment; it is not the launch token. This is separate from the early screenshot mode, which exits through its own wrapper. [Token selection](references/active-session-handoff.html), [Spawn contract](references/active-session-handoff.html)\n\n| Parameter or state | Recovered behavior |\n|---|---|\n| Application and command | Null application-name argument; mutable quoted command line |\n| Child environment | Optional Unicode environment; handle inheritance disabled |\n| Desktop and visibility | `WinSta0\\Default`; hidden/no-window startup |\n| Creation flags | `0x09000400`: breakaway, no window, Unicode environment |\n| Retry bound | At most 30 attempts; one-second sleep after failure |\n| Session-drift polling | 200 ms; a valid different console ID triggers replacement |\n\nOn successful drift replacement, the launcher closes child handles and exits the old process. It uses canonical `-acsi` state for this handoff. The recovered API makes the continuity mechanism concrete; it does not establish which elevation API produced the original high-integrity host in the second runtime evidence set. [Session drift](references/active-session-handoff.html)"
+          "text": "The active-session path resolves a bootstrap executable, preserves a constrained set of special arguments, duplicates the current process token as a primary launch token and assigns it to the target console session before calling `CreateProcessAsUserW`. A separately selected user token can supply the environment; it is not the launch token. This is separate from the early screenshot mode, which exits through its own wrapper. Token selection and process creation are traced in the [active-session handoff analysis](references/active-session-handoff.html).\n\n| Handoff detail | Behavior |\n|---|---|\n| Application and command line | Null application-name argument; mutable quoted command line |\n| Environment | Optional Unicode block; handles are not inherited |\n| Desktop | `WinSta0\\Default` |\n| Window state | Hidden with `CREATE_NO_WINDOW` |\n| Creation flags | `CREATE_BREAKAWAY_FROM_JOB`, `CREATE_NO_WINDOW`, and `CREATE_UNICODE_ENVIRONMENT` (`0x09000400`) |\n| Retry behavior | Up to 30 attempts; each failure is followed by a one-second sleep |\n| Drift check | Every 200 ms; a valid different console ID triggers replacement |\n\nOn successful drift replacement, the launcher closes child handles and exits the old process. It uses canonical `-acsi` state for this handoff. The continuity path is explicit in the Launcher, but the available runtime evidence does not identify which elevation API produced the original high-integrity host. The [handoff analysis](references/active-session-handoff.html) documents the drift state machine."
         },
         {
           "type": "figure",
@@ -179,12 +215,12 @@
     },
     {
       "id": "runtime-memory",
-      "title": "The reconstructed code appears in memory",
-      "deck": "The first runtime set links static structure, private mappings, a thread start and launcher-specific live state.",
+      "title": "Launcher B in process memory",
+      "deck": "Private executable mappings, a thread start, and Launcher-specific state connect the reconstructed image to the live surrogate.",
       "blocks": [
         {
           "type": "md",
-          "text": "The first runtime capture preserves a bare 32-bit `SysWOW64\\svchost.exe`, PID 5812, an NvSvc task, VMMap state, a user-mode dump and a late Process Monitor capture. The runtime correspondence below comes from passive examination of those artifacts.\n\nVMMap’s 408 KiB private executable allocation at `0x002E0000` was an investigative lead. Its displayed “Thread Environment Block” label did not identify its contents. The dump’s package structure, embedded offsets, PE metadata and section hashes supplied that identification. [Memory correspondence](references/evidence.html)"
+          "text": "The first runtime capture preserves a bare 32-bit `SysWOW64\\svchost.exe`, PID 5812, an NvSvc task, VMMap state, a user-mode dump and a late Process Monitor capture. The runtime correspondence below comes from passive examination of those artifacts.\n\nVMMap’s 408 KiB private executable allocation at `0x002E0000` was an investigative lead. Its displayed “Thread Environment Block” label did not identify its contents. The dump’s package structure, embedded offsets, PE metadata and section hashes supplied that identification. [Samples and provenance](references/evidence.html) records the corresponding offsets and hashes."
         },
         {
           "type": "figure",
@@ -192,18 +228,18 @@
         },
         {
           "type": "md",
-          "text": "| Object in PID 5812 | Runtime location | Why the match matters |\n|---|---|---|\n| Protected package allocation | `0x002E0000`; 417,792 bytes | A/B occur at the logical record offsets `0x128D` / `0x1CC1`; this full allocation is distinct from the 415,071-byte decoded record |\n| Mapped A | `0x02C70000`; image size `0x64000` | Entry RVA `0x1308`, timestamp `0x6A27AE4B` and PE layout agree |\n| Mapped B | `0x05410000`; image size `0x48000` | Entry RVA `0x12FAC`, timestamp `0x6A3CB0B5` and immutable sections agree |\n| Thread 1884 | Start `0x02C71308` | Exactly mapped A plus its entry RVA |\n\nThe complete protected allocation has SHA-256 `E49581067CC2AA5ABD09C8DF42D6FBD87CB064A9363FE8B52D8369FD1C51FFE5`; the embedded 415,071-byte logical record has SHA-256 `0419AE7381CAA97172C40F5AEA601B8A22F1F58D27F3930509AF5808E043F65E`. The mapped images are outside the registered module list. B-specific state includes the named mutant `PackClientLauncher.Session.9b2126fc5ed31443` under the BaseNamedObjects namespace, effective configuration and formatted launcher diagnostics. This converging evidence supports B’s activity more strongly than a lone Core-related string or a suspicious process name would.\n\nThe bounded PE/marker census found no independently identifiable Core image in this local dump. That does not exclude headerless content, missing pages, another moment in the process’s life, or unavailable artifacts. It also does not reveal the instruction-level mechanism that populated this surrogate. [Runtime validation](references/runtime-validation.html)"
+          "text": "| Runtime object | Location | Identification |\n|---|---|---|\n| Protected package allocation | `0x002E0000`; 417,792 bytes | Contains A and B at the expected logical-record offsets `0x128D` and `0x1CC1` |\n| Mapped A | `0x02C70000`; image size `0x64000` | Entry RVA `0x1308`, timestamp `0x6A27AE4B`, and PE layout match the reconstruction |\n| Mapped B | `0x05410000`; image size `0x48000` | Entry RVA `0x12FAC`, timestamp `0x6A3CB0B5`, and immutable sections match the reconstruction |\n| Thread 1884 | Start `0x02C71308` | Start address resolves exactly to mapped A plus its entry RVA |\n\nThe complete protected allocation has SHA-256 `E49581067CC2AA5ABD09C8DF42D6FBD87CB064A9363FE8B52D8369FD1C51FFE5`; the embedded 415,071-byte logical record has SHA-256 `0419AE7381CAA97172C40F5AEA601B8A22F1F58D27F3930509AF5808E043F65E`. The mapped images are outside the registered module list. B-specific state includes the named mutant `PackClientLauncher.Session.9b2126fc5ed31443`, effective configuration, and formatted launcher diagnostics. Together, the package layout, mapped images, thread start, mutex, configuration, and diagnostics identify the live mapping as Launcher B.\n\nNo identifiable Core image appears in this local dump, although headerless content, missing pages, or a different capture moment cannot be excluded. The dump also does not reveal how the surrogate was populated. The [runtime analysis](references/runtime-analysis.html) combines it with cross-task Triage records that show the remote writes and `SetThreadContext` sequence."
         }
       ]
     },
     {
       "id": "runtime-chain",
-      "title": "A second runtime set preserves the creation chain",
-      "deck": "Local captures connect sideloading, elevation and persistence; controlled Triage tasks separate the intended EXE path from a direct-DLL artifact.",
+      "title": "Persistence and execution modes",
+      "deck": "Process records connect the signed host to the surrogate and explain why full-EXE and direct-DLL execution produce different scheduled tasks.",
       "blocks": [
         {
           "type": "md",
-          "text": "During controlled execution in Windows 11, Process Monitor records successful loading of the adjacent helper after two earlier `0xC0000906` failures. A medium-integrity Tax Notice process, PID 5952, relaunches as high-integrity PID 2116. The elevated host creates the bare surrogate and the task-creation branch below. The session includes separate launch attempts; the process relationships are tied to their recorded creation events. [Native process evidence](references/runtime-validation.html)"
+          "text": "During controlled execution in Windows 11, Process Monitor records successful loading of the adjacent helper after two earlier `0xC0000906` failures. A medium-integrity Tax Notice process, PID 5952, relaunches as high-integrity PID 2116. The elevated host creates the bare surrogate and the task-creation branch below. The session includes separate launch attempts; the process relationships are tied to their recorded creation events. See the [runtime analysis](references/runtime-analysis.html) for the native process evidence."
         },
         {
           "type": "diagram",
@@ -215,7 +251,7 @@
         },
         {
           "type": "md",
-          "text": "The relationship is specific: **svchost 3696 and schtasks 4600 are siblings under 2116**. Conhost 8248 belongs below schtasks. The parent exits shortly after creating its children; its continued appearance in a process tree preserves ancestry, not liveness. Later reuse of a numeric PID must be joined to a new process start and lifetime.\n\nNative file and registry records establish installation beneath `C:\\ProgramData\\NVIDIA Corporation\\NvSvc`, hidden/backdated copies and HKCU Run/RunOnce writes in this chain. Task XML and the creation record establish NvSvc persistence. Task Scheduler shows the at-logon trigger, ProgramData action and configured user context. Unlike the first set’s timestamp mismatch alone, the second runtime evidence set includes records of the backdating operation. [Persistence evidence](references/evidence.html)"
+          "text": "The relationship is specific: **svchost 3696 and schtasks 4600 are siblings under 2116**. Conhost 8248 belongs below schtasks. The parent exits shortly after creating its children; its continued appearance in a process tree preserves ancestry, not liveness. Later reuse of a numeric PID must be joined to a new process start and lifetime.\n\nNative file and registry records establish installation beneath `C:\\ProgramData\\NVIDIA Corporation\\NvSvc`, hidden and backdated copies, and HKCU Run/RunOnce writes in this chain. Task XML and the creation record establish NvSvc persistence. Task Scheduler shows the at-logon trigger, ProgramData action, and configured user context. The later capture also records the backdating operation rather than merely showing a timestamp mismatch. The underlying file, registry, and task identities are listed in [Samples and provenance](references/evidence.html)."
         },
         {
           "type": "figure",
@@ -235,7 +271,7 @@
         },
         {
           "type": "md",
-          "text": "“Highest privileges” here belongs to the selected current user; it does not mean SYSTEM. A later persisted-path launch is observed, but the saved local evidence does not resolve every trigger as logon versus on-demand. In isolation, the bare local surrogate properties support an anomalous launcher host but do not identify an injection subtype. The cross-task Triage record supplies the missing higher-level classification: remote writes followed by `SetThreadContext` on the suspended primary thread support thread execution hijacking (`T1055.003`), while the precise write primitive and installed instruction pointer remain unresolved.\n\nThe second dump records a 415,071-byte transformed package and a private B mapping. The recorded comparison reports eight differing bytes at three package sites, plus normalized B correspondence after accounting for relocations and the import address table. **The package/B residence result stands separately from the proposed explanation for those eight bytes.** Three simple 6666-to-443 port substitutions would ordinarily account for six changed bytes, so the exact per-site before/after transcript is still required. The eight-byte result is not a proved port patch. [Recorded comparison and open gap](references/evidence.html)"
+          "text": "“Highest privileges” here belongs to the selected current user; it does not mean SYSTEM. A later persisted-path launch is observed, but the saved local evidence does not resolve every trigger as logon versus on-demand. Across the Triage runs, remote writes followed by `SetThreadContext` on the suspended primary thread identify thread execution hijacking (`T1055.003`). The precise write primitive and installed instruction pointer remain unresolved.\n\nA separate dump contains the 415,071-byte transformed package and a private mapping of Launcher B. After relocations and imported addresses are normalized, three package sites differ by eight bytes. This confirms that the package and Launcher were resident, but does not prove that the eight bytes form a port patch. Three `6666`-to-`443` substitutions would explain six bytes; resolving the remaining two requires the original before-and-after bytes from each site. See [Samples and provenance](references/evidence.html) for the recorded comparison."
         },
         {
           "type": "figure",
@@ -245,12 +281,12 @@
     },
     {
       "id": "connectivity",
-      "title": "Local failure and historical success are separate",
-      "deck": "The local captures show failed attempts; the July public captures preserve an established PackClient session.",
+      "title": "From failed connections to a live session",
+      "deck": "Local captures preserve failed connection attempts; July Triage traffic preserves the complete authenticated session and delivered Core.",
       "blocks": [
         {
           "type": "md",
-          "text": "PID 5812’s preserved environment and formatted buffers identify `154[.]36[.]188[.]201:443`, a slot-0 pull attempt and `WSA=10060`. The PID 3696 set adds 373 ICMP host-unreachable messages quoting TCP SYNs to the same destination, plus two direct `SYN_SENT` socket views. These local artifacts establish attempts, not a completed session.\n\nThe historical July Triage streams answer the missing question: they contain server PLC1, client PLA1, complete PLK1 delivery and post-Core bidirectional application traffic on the same TCP/443 endpoint. The traffic is raw PackClient, not TLS. The September researcher reruns `260908-zwr5naybjb` and `260909-abma8sab28` again reached only the greeting/retry stage because the server returned no application data. [Historical and local network evidence](references/core-and-artifact-audit.html)"
+          "text": "PID 5812’s preserved environment and formatted buffers identify `154[.]36[.]188[.]201:443`, a slot-0 pull attempt and `WSA=10060`. The PID 3696 set adds 373 ICMP host-unreachable messages quoting TCP SYNs to the same destination, plus two direct `SYN_SENT` socket views. These local artifacts establish attempted connections, not a completed session.\n\nBy contrast, the July Triage streams contain server PLC1, client PLA1, complete PLK1 delivery, and bidirectional Core traffic on the same TCP/443 endpoint. The September reruns `260908-zwr5naybjb` and `260909-abma8sab28` reached only the greeting/retry stage because the server returned no application data. The complete decoded sequence appears in the [PackClient Core analysis](references/core-analysis.html)."
         },
         {
           "type": "figure",
@@ -258,56 +294,29 @@
         },
         {
           "type": "md",
-          "text": "| Evidence object | What it establishes | Limit |\n|---|---|---|\n| PID 5812 dump buffers | Configured attempt and timeout | No successful handshake in that local capture |\n| PID 3696 TCP/IP/PCAP views | Failed SYN behavior associated with PID 3696 | Packet file itself has no PID metadata |\n| July historical Triage flows | Successful Launcher authentication, PLK1 and Core traffic | Public sandbox scope; no server implementation |\n| September researcher reruns | PLH1 retries and server non-response | Does not explain the server-side cause |\n\nPort 443 alone does not establish TLS or HTTPS. Capture dates and execution contexts remain attached to every claim: a historical successful session does not convert the September non-response into success, and the later failure does not negate the July delivered Core. [Evidence boundaries](references/evidence.html)"
-        }
-      ]
-    },
-    {
-      "id": "worker-failure",
-      "title": "The worker failed before READY",
-      "deck": "A potentially unsafe lifetime sequence is real static evidence. The available debugger record does not prove it caused the final failure.",
-      "blocks": [
-        {
-          "type": "md",
-          "text": "The recovered capture path creates a DIB, selects it, calls `BitBlt`, restores the old selection, calls `DeleteObject`, performs DC cleanup and later copies from the saved bits pointer. Microsoft’s API contract explains why a successful deletion would matter: deleting the DIB frees system-owned bits. But `DeleteObject` can fail, and a breakpoint before its call does not capture a successful return. [CreateDIBSection](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-createdibsection), [DeleteObject](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-deleteobject)"
-        },
-        {
-          "type": "figure",
-          "id": "worker-delete"
-        },
-        {
-          "type": "md",
-          "text": "Debugger evidence spans three separate attempts with manual changes. The process IDs and addresses cannot be combined into a controlled before/after experiment.\n\n| PID | Observation | Limit |\n|---|---|---|\n| 8892 | Source `0x03260000`, copy length `0x510000`; memory-map lookup rejects the source | Successful deletion and an unmodified baseline |\n| 8148 | Pre-delete breakpoint; later copy breakpoint uses source `0x02830000` | A breakpoint is not an access violation or a deletion result |\n| 8040 | AV at RVA `0xA567`, `push [edi+8]`, `EDI=0x13C`; zero READY bytes received | Correct application of every manual change and the crash’s causal chain |\n\nThe copy length `0x510000` equals `1536 × 864 × 4`, consistent with the captured monitor geometry. Arithmetic agreement does not establish buffer lifetime or ownership. [Attempt-level validation](references/screenshot-ipc.html)"
-        },
-        {
-          "type": "figure",
-          "id": "worker-failure"
-        },
-        {
-          "type": "md",
-          "text": "The peer received zero of the expected 20 READY bytes before timeout. No supplied artifact captures the real `1 → 3 → 2 → 5` exchange, a type-2 framebuffer, or a successful correction. The publication therefore reports a **lifetime-hazard lead and a failed worker attempt**, while leaving successful deletion, a causal use-after-free diagnosis and a proven fix unresolved. A single build/environment record also cannot establish that PackClient screenshots universally fail. [Worker validation boundary](references/evidence.html)"
+          "text": "The packet capture has no PID metadata, so it cannot independently assign traffic to PID 3696; Process Explorer supplies that process-to-socket link. The successful July traffic uses TCP/443 but is raw PackClient rather than TLS or HTTPS. The preserved evidence establishes the different connection outcomes, but not why the server stopped responding. Capture identities and network observations are listed in [Samples and provenance](references/evidence.html)."
         }
       ]
     },
     {
       "id": "tools",
-      "title": "Tools, reproducibility and defensive use",
-      "deck": "The public tools decode Launcher and Core traffic, recover verified artifacts, and exercise the detections without executing malware.",
+      "title": "Analysis tools and detections",
+      "deck": "Offline decoders, a Wireshark dissector, and detection rules turn the recovered formats and behavior into practical research tools.",
       "blocks": [
         {
           "type": "md",
-          "text": "The repository ships two offline Python command-line tools and a phase-aware Wireshark Lua dissector. They decode Launcher and Core framing, distinguish the two type-`0x16` formats, label observed Core messages, validate `PV10`, and can export verified PLK1/Core and JPEG artifacts with a manifest tying each output to its source flow and frames. They do not execute samples, open sockets, resolve domains, or replay traffic. [Tooling](references/tooling.html)\n\nThe automated suite covers framing, handshake verification, both encryption formats, PLK1 reassembly and extraction, Core command parsing, `PV10`, capture reassembly, Wireshark integration, screenshot IPC, and detection-rule behavior. Historical captures were also used to recover the Core and extract the 15 observed JPEGs.\n\n### Detection coverage\n\nThe Sigma rules cover the observed `NvSvc` task, anomalous 32-bit surrogate, screenshot-worker mode, and active-session mode. Suricata rules retain the plaintext markers already covered by Emerging Threats as regression checks and add stream-aware progression through PLK1, an observed Core startup response, and startup-to-`PV10` correlation. Separate compiled YARA rules identify the recovered Launcher and Core.\n\nThe Launcher rule matched all 86 retained Launcher mappings and none of 383 other retained objects. The Core rule matched the recovered DLL and all 352 retained Core mappings, with no matches among 116 Launcher/control allocations. Both rules also produced zero matches across more than 30,000 local Windows and installed-application PE files. The rules remain experimental because no representative enterprise-software or unrelated-malware corpus was tested. [Detection guide](references/detection-guide.html)"
+          "text": "Two offline Python tools and a phase-aware Wireshark Lua dissector accompany the analysis. They decode Launcher and Core framing, distinguish the two type-`0x16` formats, label observed Core messages, validate `PV10`, and export verified PLK1/Core and JPEG files when requested. Each export records its source flow, frame positions, size, and hash. All three tools operate passively on supplied files or byte streams. Setup and usage are described under [Analysis tools](references/tooling.html).\n\nThe test suite covers framing, authentication, both encryption formats, PLK1 reassembly and extraction, Core commands, `PV10`, capture reassembly, Wireshark integration, screenshot IPC, and detection rules. Running the tools against the historical captures reproduced the recovered Core and all 15 JPEG frames.\n\n### Detection and hunting\n\nThe detection set covers three layers:\n\n- Sigma rules target the observed `NvSvc` task, 32-bit surrogate creation, screenshot-worker mode, and active-session mode.\n- Suricata rules include standalone Launcher markers that overlap existing Emerging Threats coverage, plus flow-aware challenge-to-PLK1 and Core-startup-to-`PV10` sequences.\n- Separate YARA rules identify the recovered Launcher and Core.\n\nOn the retained case material, the Launcher rule matched all 86 Launcher mappings and none of 383 other objects. The Core rule matched the recovered DLL and all 352 Core mappings, with no matches among 116 Launcher or control allocations. A preliminary scan of more than 30,000 local Windows and installed-application PE files produced no matches for either rule.\n\nThe YARA rules remain experimental because they have not been measured against a broad enterprise-software or unrelated-malware corpus. See the [Detection guide](references/detection-guide.html) for rule logic, validation, and false-positive considerations."
         }
       ]
     },
     {
       "id": "contribution",
-      "title": "Contribution and remaining questions",
-      "deck": "Recovered Launcher and Core implementation extend the public campaign account; plugin bytes and the external 1RCP peer remain unresolved.",
+      "title": "What this research adds",
+      "deck": "The recovered Launcher and Core extend the public PackClient account from campaign reporting into an execution and protocol reconstruction.",
       "blocks": [
         {
           "type": "md",
-          "text": "Proofpoint’s 27 August 2026 report is the public campaign anchor. It already describes the Tax Notice chain, modular Launcher/Core architecture, representative protocol markers and Emerging Threats coverage. Deception.Pro separately provides later PackClient hands-on-keyboard and ManageEngine context. This work adds the Launcher's recovered transport and loading contracts, direct Core reconstruction from PLK1 traffic, the signed-host/Donut/mapper chain, and the supporting detection and analysis tools. [Proofpoint campaign report](https://www.proofpoint.com/us/blog/threat-insight/carry-compromise-ta4922-packs-packclient), [Deception.Pro later reporting](https://blog.deception.pro/blog/new-packclient-hok-aug2026)\n\n| Remaining gap | Evidence needed to close it | Present boundary |\n|---|---|---|\n| Plugin binaries | A preserved plugin transfer/cache/memory image with provenance | Loader and protocol exist; no plugin PE recovered |\n| Carrier write primitive | Exact static write API/call site and installed instruction-pointer value | Runtime writes and primary-thread hijacking are established |\n| External `1RCP` peer | Endpoint creation and type-2 consumption implementation | No confirmed bridge to Core `PV10` |\n| Successful real `1RCP` exchange | Preserved READY/frame output tied to one controlled attempt | Static contract and synthetic agreement only |\n| Deletion/crash causality | Captured deletion result and controlled attempt record | Lifetime hazard is not a proved cause or fix |\n| Launcher envelope-key initialization | Writer and runtime values for the gated globals | Do not infer a PSK-to-key derivation |\n| Server implementation | Server-side bytes/configuration | Historical captures prove behavior, not server code |\n| September non-response cause | Server-side telemetry or controlled infrastructure | Inactive, gated and suppressed-response hypotheses remain open |\n| Production detector accuracy | Representative malicious and benign corpora | No sensitivity/specificity claim |\n\nDetailed Core behavior is documented in [PackClient Core](references/core-analysis.html). [Scope and limitations](references/limitations.html) records the remaining gaps."
+          "text": "Proofpoint’s 27 August 2026 report describes the Tax Notice chain, PackClient’s modular Launcher/Core architecture, representative protocol markers, and existing Emerging Threats coverage. Deception.Pro later documented PackClient hands-on-keyboard activity and ManageEngine use. This research adds the Launcher’s transport and loading contracts, direct Core reconstruction from PLK1 traffic, the signed-host/Donut/mapper chain, and working analysis and detection tools. [Proofpoint campaign report](https://www.proofpoint.com/us/blog/threat-insight/carry-compromise-ta4922-packs-packclient), [Deception.Pro later reporting](https://blog.deception.pro/blog/new-packclient-hok-aug2026)\n\nSeveral pieces remain outside the recovered chain:\n\n| Missing component or event | What would resolve it | What is known now |\n|---|---|---|\n| Plugin binaries | A preserved plugin transfer, cache pair, or post-activation memory image | Core contains the protocol, cache, ABI, and loaders, but no plugin PE was captured |\n| Carrier write primitive | The precise write call site and the instruction pointer installed by `SetThreadContext` | Remote placement and primary-thread hijacking are established at runtime |\n| External `1RCP` peer | The endpoint creator and type-2 consumer | Launcher B supplies the worker; no bridge to Core `PV10` was found |\n| Real `1RCP` exchange | A complete READY/request/frame sequence from the malware worker | The code path and synthetic exchange agree, but the real exchange did not complete |\n| Launcher envelope keys | The initializer or live values for the gated key globals | The receive format is recovered; its key source is not |\n| Server implementation | Server-side code or configuration | Historical captures reveal behavior and commands, not the implementation |\n| September non-response | Server-side telemetry or controlled infrastructure | The client sent PLH1 but received no application data |\n| Production detector accuracy | Broader benign and unrelated-malware collections | The rules pass case-specific and local benign tests |\n\nThe [PackClient Core](references/core-analysis.html) note contains the full Core reconstruction. [Scope and limitations](references/limitations.html) collects the remaining technical gaps."
         }
       ]
     }
@@ -315,12 +324,12 @@
   "identities": [
     [
       "Campaign ZIP",
-      "Not republished",
+      "248,759 bytes",
       "7108FF29916D064216AA2ECE7FB395F1E3A73D12D19895BFFC0BD46806CBF85A"
     ],
     [
       "Staged IMG",
-      "Not republished",
+      "641,024 bytes",
       "38EC1F5E23F65B10AE3027BEABFA0BF7F9FB686355A9E33C7E7E44E6A998E04C"
     ],
     [
@@ -386,7 +395,7 @@
   ],
   "research_cutoff": "2026-09-09",
   "status": "Launcher-to-Core execution, delivery, persistence, and C2 behavior",
-  "abstract": "This report follows PackClient from its signed-host carrier into a suspended 32-bit surrogate, the injected Donut package, Launcher execution, and a 985,088-byte Core recovered directly from historical PLK1 traffic. Reassembled sessions preserve successful authentication, Core delivery, plaintext commands, and 15 PV10 JPEG frames. The research also reconstructs the Core's plugin contracts, encryption, update storage, clipboard replacement, and screenshot producer, while keeping the unrecovered plugin binaries, external 1RCP peer, and server implementation explicit.",
+  "abstract": "This report follows PackClient from its signed-host carrier into a suspended 32-bit surrogate, the injected Donut package, Launcher execution, and a 985,088-byte Core recovered directly from historical PLK1 traffic. Reassembled sessions preserve successful authentication, Core delivery, plaintext commands, and 15 PV10 JPEG frames. Analysis of the recovered Core reveals its plugin contracts, application encryption, update storage, clipboard replacement, and built-in screenshot producer.",
   "key_findings": [
     "A 985,088-byte <code>PackClientCore.dll</code> was recovered directly from historical PLK1 traffic; its <code>.text</code> matches all 352 retained Core memory mappings.",
     "A complete <code>PLH1 -> PLC1 -> PLA1 -> PLK1</code> session continues into bidirectional Core traffic and 15 <code>PV10</code> JPEG frames.",

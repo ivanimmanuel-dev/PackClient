@@ -15,7 +15,7 @@ SOCIAL_ALT = f'{TITLE}. {SUBTITLE}. {AUTHOR}.'
 
 
 def grade_label(grade):
-    return {'static': 'static reconstruction', 'runtime': 'runtime observation', 'unresolved': 'observation · causality unresolved'}.get(grade, grade)
+    return {'static': 'static reconstruction', 'runtime': 'runtime observation', 'verification': 'recovery verification', 'unresolved': 'unresolved observation'}.get(grade, grade)
 
 
 SECTIONS = DATA['sections']

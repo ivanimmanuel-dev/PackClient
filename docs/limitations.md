@@ -10,7 +10,7 @@ This report covers one PackClient Launcher build and the Core DLL recovered dire
 
 - **Plugins and Core updates:** The Core implements modern and legacy plugin loading, staged delivery, protected storage, activation, and update handling. No delivered plugin binary, paired plugin cache, activated plugin mapping, or completed Core-update transaction was recovered.
 
-- **Screenshot paths:** The Launcher's `1RCP` message format and framebuffer layout were recovered, but no complete exchange with the real worker was captured. The external peer, endpoint creator, downstream framebuffer consumer, and any bridge between Launcher `1RCP` and Core `PV10` remain unknown. The observed bitmap-deletion order alone does not prove a causal use-after-free.
+- **Screenshot paths:** The Launcher's `1RCP` message format and framebuffer layout were recovered, but no complete exchange with the real worker was captured. The external peer, endpoint creator, downstream framebuffer consumer, and any bridge between Launcher `1RCP` and Core `PV10` remain unknown. The observed bitmap-deletion order alone does not establish a use-after-free.
 
 - **Active-session handoff:** Token selection, process creation, argument handling, and session-drift behavior were recovered from the Launcher. No successful replacement into another interactive session was observed.
 

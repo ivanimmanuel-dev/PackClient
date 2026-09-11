@@ -359,9 +359,7 @@ def evidence_flows(fid):
     number = NUMBERS[fid]
     if fid == 'runtime-process-chain':
         return process_chain_flows(figure, number)
-    # The tall worker-failure plate continues between its evidence panels.
-    breaks = {'worker-failure': (0, 700 / 1812, 1)}
-    stops = breaks.get(fid, (0, 1))
+    stops = (0, 1)
     flows = []
     for part, (start, end) in enumerate(zip(stops, stops[1:])):
         suffix = ' / CONTINUED' if part else ''
@@ -569,7 +567,7 @@ def make_pdf():
         Paragraph('<b>Analysis scope</b> — ' + esc(DATA.get('status', 'PackClientLauncher code and runtime evidence')), S['small']),
         NextPageTemplate('Body'), PageBreak(),
         Paragraph('CONTENTS', S['kicker']), Paragraph('The research', S['h1']),
-        Paragraph('PackClientLauncher: reconstructed interfaces, runtime evidence and the limits of the recovered build.', S['deck']),
+        Paragraph('The signed-host chain, Launcher, delivered Core, persistence, historical traffic, and defensive tooling.', S['deck']),
     ]
     toc = TableOfContents()
     toc.levelStyles = [S['toc']]
@@ -577,7 +575,7 @@ def make_pdf():
     story.append(toc)
     story += [Spacer(1,20), Rule(), Spacer(1,8),
         Paragraph(f'<link href="{SITE}">Online article and full-resolution figures</link> · '
-            f'<link href="{SITE}/references.html">Technical references and tooling</link>', S['source']),
+            f'<link href="{SITE}/references.html">Technical notes and tooling</link>', S['source']),
         PageBreak()]
     for index, section in enumerate(SECTIONS, 1):
         if index > 1:
@@ -602,11 +600,6 @@ def make_pdf():
             Paragraph(esc(name) + ' <font name="Sans" color="#596873">/ ' + esc(size) + '</font>', S['figtitle']),
             Paragraph(chunks, S['hash']), Spacer(1,10), Rule(), Spacer(1,8),
         ]))
-    story += [Paragraph('Source access', S['h2']), Paragraph(
-        'Raw malware, virtual-machine disks, dumps and captures are not redistributed. '
-        'The technical references preserve artifact identities and the limits of the available evidence. '
-        'The repository contains the research, selected figures, inspection tools and the optional synthetic IPC kit with its tests.', S['body'])]
-
     story += [PageBreak()]
     story += heading('Figure index', 'appendix-figures', 'Appendix B  Figure index', 'APPENDIX B')
     rows = [['Figure', 'Material', 'Title']]
@@ -619,7 +612,7 @@ def make_pdf():
 
     story += [PageBreak()]
     story += heading('References', 'appendix-references', 'Appendix C  References', 'APPENDIX C')
-    story.append(Paragraph('Numbered references correspond to the citations in the article. Technical references provide the focused supporting analysis; external sources establish prior work and API contracts.', S['deck']))
+    story.append(Paragraph('References are listed in the order they first appear. External sources cover prior reporting, upstream code, and API behavior.', S['deck']))
     for url, (number, title) in REFERENCES.items():
         story.append(KeepTogether([
             Paragraph(f'<b>[{number}]</b> <link href="{esc(url)}">{esc(title)}</link>', S['reference']),
